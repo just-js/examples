@@ -1,5 +1,7 @@
-const { compile, save, evaluate, createMemory } = just.require('wasm')
+const { compile, save, evaluate, createMemory } = require('../../modules/wasm/wasm.js')
 const { loop } = just.factory
+const { http } = just.library('../../modules/picohttp/http.so', 'http')
+const { parseRequests } = http
 
 async function main () {
   const fileName = just.path.join(just.path.baseName(just.path.scriptName), './parse.wat')
@@ -12,21 +14,24 @@ async function main () {
   const context = { }
   let requests = 0
   const { parse } = evaluate(wasm, context, memory)
-  const str = 'GET / HTTP/1.1\r\nHost: foo\r\n\r\n'.repeat(1024)
+  const str = 'GET /thisisatest HTTP/1.1\r\nHost: api.billywhizz.io\r\nAccept: application/json\r\n\r\n'.repeat(1024)
   const len = buffer.writeString(str, startData)
+  let bytes = 0
   function test () {
-    for (let i = 0; i < 1000; i++) {
-      for (let j = 0; j < 10000; j++) {
-        requests += parse(startData, len + startData)
-      }
+    for (let i = 0; i < 10000; i++) {
+      requests += parse(startData, len + startData)
+      //requests += parseRequests(buffer, len, startData)
+      bytes += len
       loop.poll(0)
       just.sys.runMicroTasks()
     }
   }
   just.setInterval(() => {
     const rss = just.memoryUsage().rss
-    just.print(`rps ${requests} mem ${rss}`)
+    const mbps = Math.floor(bytes / (1024 * 1024) * 100) / 100
+    just.print(`rps ${requests} mem ${rss} MBps ${mbps}`)
     requests = 0
+    bytes = 0
   }, 1000)
   while (1) {
     test()

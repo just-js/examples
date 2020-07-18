@@ -13,6 +13,7 @@ function createSocket (fd, buf, onClose) {
     if (bytes < 0) {
       const errno = sys.errno()
       if (errno !== net.EAGAIN) {
+        just.print(sys.strerror(errno))
         onClose(fd)
       }
       return bytes
