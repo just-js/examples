@@ -1,0 +1,18 @@
+[req]
+distinguished_name = foo
+x509_extensions = v3_req
+prompt = no
+[foo]
+C = GB
+L = London
+O = just js
+OU = London
+CN = just.billywhizz.io
+[v3_req]
+keyUsage = critical, digitalSignature, keyAgreement
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = www.localhost.com
+DNS.2 = localhost.com
+DNS.3 = localhost
