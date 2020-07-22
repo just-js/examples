@@ -1,5 +1,5 @@
 const { net, sys } = just
-const { zlib } = just.library('../../modules/zlib/zlib.so', 'zlib')
+const zlib = require('./zlib.js')
 
 const BUFSIZE = 64 * 1024
 

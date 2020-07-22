@@ -1,5 +1,5 @@
 const { print, sys, net } = just
-const { zlib } = just.library('../../modules/zlib/zlib.so', 'zlib')
+const zlib = require('./zlib.js')
 const { strerror, errno } = sys
 const { close, read } = net
 const BUFSIZE = 65536
