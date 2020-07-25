@@ -1,4 +1,4 @@
-const postgres = require('./pg.js')
+const postgres = require('./lib/pg.js')
 
 function formatFieldName (str, size = str.length) {
   return `${ANSI_MAGENTA}${str.slice(0, size).padEnd(size, ' ')}${ANSI_DEFAULT}| `

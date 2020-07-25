@@ -1,6 +1,6 @@
 const { net } = just
 const { STDIN_FILENO, STDOUT_FILENO } = just.sys
-const postgres = require('./pg.js')
+const postgres = require('./lib/pg.js')
 
 const { connect, execute } = postgres
 const { PGCONN } = just.env()

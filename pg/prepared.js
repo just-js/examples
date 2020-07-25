@@ -1,4 +1,4 @@
-const postgres = require('./pg.js')
+const postgres = require('./lib/pg.js')
 const { connect, executePrepared } = postgres
 
 const handle = connect('postgres://benchmarkdbuser:benchmarkdbpass@tfb-database/hello_world')
