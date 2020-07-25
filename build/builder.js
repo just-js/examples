@@ -1,8 +1,8 @@
 const { copyFile } = require('fs')
 const { cwd } = just.sys
-const { build } = require('../../just/lib/build.js')
+const { build } = require('build')
 
-const justDir = `${just.env().JUST_HOME || just.sys.cwd()}/.foo`
+const justDir = `${just.env().JUST_TARGET || just.sys.cwd()}/.foo`
 const config = {
   destination: justDir
 }
@@ -17,4 +17,4 @@ function run (fileName = 'just') {
   })
 }
 
-run('foo')
+run()
