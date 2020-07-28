@@ -3,8 +3,8 @@ const { tls } = just.library('openssl.so', 'tls')
 const { AF_INET, SOCK_STREAM, SOCK_NONBLOCK, SOL_SOCKET, IPPROTO_TCP, TCP_NODELAY, SO_KEEPALIVE, EAGAIN } = net
 const { EPOLLERR, EPOLLHUP, EPOLLIN, EPOLLOUT } = just.loop
 const { loop } = just.factory
-const { create, parse } = just.require('./dns.js')
-const { createParser, HTTP_RESPONSE } = require('./protocol.js')
+const { create, parse } = just.require('dns.js')
+const { createParser, HTTP_RESPONSE, HTTP_CHUNKED } = require('protocol.js')
 
 function lookup (query = 'www.google.com', onRecord = () => {}, address = '8.8.8.8', port = 53, buf = new ArrayBuffer(65536)) {
   const fd = net.socket(net.AF_INET, net.SOCK_DGRAM | net.SOCK_NONBLOCK, 0)
@@ -22,7 +22,7 @@ function lookup (query = 'www.google.com', onRecord = () => {}, address = '8.8.8
   udp.sendmsg(fd, buf, address, port, len)
 }
 
-function closeSocket (socket) {
+function closeSocket (socket, err) {
   const { fd, buf, closed } = socket
   if (closed) return
   loop.remove(fd)
@@ -30,7 +30,7 @@ function closeSocket (socket) {
   tls.shutdown(buf)
   tls.free(buf)
   net.close(fd)
-  socket.onClose && socket.onClose()
+  socket.onComplete && socket.onComplete(err)
   socket.closed = true
 }
 
@@ -53,13 +53,52 @@ function onSocketEvent (fd, event) {
     }
     if (r === 1) {
       socket.handshake = true
-      const parser = createParser(buf, HTTP_RESPONSE)
-      parser.onResponses = count => {
-        for (const res of parser.get(count)) {
+      socket.parser = createParser(buf, HTTP_RESPONSE)
+      socket.parser.onResponses = count => {
+        for (const res of socket.parser.get(count)) {
           socket.onResponse(res)
+          if (res.statusCode === 200) {
+            const contentLength = parseInt(res.headers['Content-Length'] || 0, 10)
+            let total = 0
+            if (contentLength === 0) {
+              just.print('chunked')
+              delete socket.parser
+              const parser = createParser(buf, HTTP_CHUNKED)
+              parser.onData = bytes => {
+                total += bytes
+                socket.onBody && socket.onBody(bytes)
+              }
+              parser.onEnd = () => {
+                socket.close()
+              }
+              socket.onData = bytes => {
+                parser.parse(bytes)
+              }
+              if (buf.remaining > 0) {
+                buf.copyFrom(buf, 0, buf.remaining, buf.offset)
+                buf.offset = 0
+                parser.parse(buf.remaining)
+                buf.remaining = 0
+              }
+            } else {
+              socket.onData = (bytes) => {
+                total += bytes
+                socket.onBody && socket.onBody(bytes)
+                if (total === contentLength) {
+                  socket.close()
+                }
+                buf.offset = 0
+              }
+              if (buf.offset > 0) {
+                socket.onBody && socket.onBody(buf.remaining)
+                total += buf.remaining
+              }
+              delete socket.parser
+            }
+            buf.offset = 0
+          }
         }
       }
-      socket.parser = parser
       socket.onSecure()
       return
     }
@@ -93,7 +132,7 @@ function onSocketEvent (fd, event) {
           net.shutdown(fd)
         }
       } else {
-        just.print('uhu')
+        just.print(`tls error ${err}: ${sys.errno()}: ${sys.strerror(sys.errno())}`)
       }
       return
     }
@@ -134,7 +173,7 @@ function fetch (url, fileName) {
     handshake: false,
     closed: false,
     write: tls.write,
-    close: () => closeSocket(socket)
+    close: err => closeSocket(socket, err)
   }
   sockets[client] = socket
   lookup(hostname, record => {
@@ -150,6 +189,37 @@ function fetch (url, fileName) {
   return socket
 }
 
+function download (args, onEnd) {
+  const url = args[0]
+  const fileName = args[1] || './download.tar.gz'
+  const file = { fileName, size: 0 }
+  return new Promise((resolve, reject) => {
+    const socket = fetch(url, fileName)
+    const { buf } = socket
+    socket.file = file
+    socket.onSecure = () => {
+      socket.write(buf, buf.writeString(`GET ${socket.path} HTTP/1.1\r\nUser-Agent: curl/7.58.0\r\nAccept: */*\r\nHost: ${socket.hostname}\r\n\r\n`))
+    }
+    socket.onResponse = res => {
+      if (res.statusCode === 200) {
+        res.file = file
+        file.fd = just.fs.open(fileName, just.fs.O_WRONLY | just.fs.O_CREAT | just.fs.O_TRUNC)
+        if (file.fd < 3) return socket.close(new Error(`failed to open output file ${fileName}`))
+        socket.onBody = bytes => {
+          just.net.write(file.fd, buf, bytes, buf.offset)
+          res.file.size += bytes
+        }
+        socket.onComplete = err => {
+          if (err) return reject(err)
+          resolve(res)
+        }
+        return
+      }
+      reject(new Error('Bad Status Code'), res)
+    }
+  })
+}
+
 const sockets = {}
 
-module.exports = { fetch }
+module.exports = { fetch, download }
