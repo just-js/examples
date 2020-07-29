@@ -1,4 +1,4 @@
-const { http } = just.library('../../../modules/picohttp/http.so', 'http')
+const { http } = just.library('http.so', 'http')
 const { parseRequests, getRequests, getUrl } = http
 
 const free = []

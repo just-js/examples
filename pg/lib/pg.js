@@ -1,4 +1,4 @@
-const { pg } = just.library('../../modules/pg/pg.so', 'pg')
+const { pg } = just.library('pg.so', 'pg')
 const { exec, prepare, execPrepared, consumeInput, sendPrepare, isBusy, getResult, getFieldName, getType, getSize, getValue, clear, errorMessage, sendExecPrepared, PGRES_TUPLES_OK, INT4OID, PGRES_COMMAND_OK } = pg
 const { EPOLLERR, EPOLLHUP, EPOLLIN, EPOLLOUT, EPOLLET } = just.loop
 const { loop } = just.factory
