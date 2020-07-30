@@ -227,6 +227,11 @@ function PGConnect (address, port, user, pass, db, onConnect) {
           if (!connected) {
             connected = true
             socket.onConnect(status)
+            if (pending.length) {
+              const { sql, onComplete } = pending.shift()
+              current = onComplete
+              net.write(client, execQuery(sql))
+            }
           }
         } else if (type === 'T') { // RowDescription
           const fieldCount = dv.getInt16(off)
@@ -298,7 +303,7 @@ function PGConnect (address, port, user, pass, db, onConnect) {
   }, EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLOUT | EPOLLET)
 
   function query (sql, onComplete) {
-    if (current) {
+    if (!connected || current) {
       pending.push({ sql, onComplete })
       return
     }
@@ -309,7 +314,7 @@ function PGConnect (address, port, user, pass, db, onConnect) {
   net.connect(client, address, port)
   let current
   const pending = []
-  const socket = { query, onConnect }
+  const socket = { query, onConnect, pending }
   return socket
 }
 
