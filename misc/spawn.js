@@ -25,7 +25,7 @@ function onTimer () {
 
 const last = { user: 0, system: 0 }
 const source = readFile(just.args[2] || 'test.js')
-const cpus = parseInt(just.args[3] || just.sys.cpus, 10)
+const cpus = parseInt(just.env().CPUS || just.sys.cpus, 10)
 const threads = []
 for (let i = 0; i < cpus; i++) spawn(source)
 just.setInterval(onTimer, 1000)
