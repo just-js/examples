@@ -211,6 +211,7 @@ function download (args, onEnd) {
             }
           }
         }
+        if (!fileName) throw new Error('no filename provided and none found in response headers')
         const file = { size: 0, fileName }
         res.file = file
         file.fd = just.fs.open(fileName, just.fs.O_WRONLY | just.fs.O_CREAT | just.fs.O_TRUNC)
