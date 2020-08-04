@@ -61,7 +61,7 @@ function onSocketEvent (fd, event) {
             const contentLength = parseInt(res.headers['Content-Length'] || 0, 10)
             let total = 0
             if (contentLength === 0) {
-              just.print('chunked')
+              res.chunked = true
               delete socket.parser
               const parser = createParser(buf, HTTP_CHUNKED)
               parser.onData = bytes => {
@@ -74,13 +74,14 @@ function onSocketEvent (fd, event) {
               socket.onData = bytes => {
                 parser.parse(bytes)
               }
-              if (buf.remaining > 0) {
+              if (buf.offset > 0) {
                 buf.copyFrom(buf, 0, buf.remaining, buf.offset)
                 buf.offset = 0
                 parser.parse(buf.remaining)
                 buf.remaining = 0
               }
             } else {
+              res.chunked = false
               socket.onData = (bytes) => {
                 total += bytes
                 socket.onBody && socket.onBody(bytes)
@@ -117,6 +118,7 @@ function onSocketEvent (fd, event) {
     loop.update(fd, EPOLLIN)
   }
   if (event & EPOLLIN) {
+    buf.offset = 0
     const bytes = tls.read(buf, buf.byteLength - buf.offset, buf.offset)
     if (bytes > 0) {
       if (socket.onData) socket.onData(bytes)
@@ -155,14 +157,13 @@ function parseUrl (url) {
   return { protocol, hostname, path }
 }
 
-function fetch (url, fileName) {
+function fetch (url) {
   const context = tls.clientContext(new ArrayBuffer(0))
   const { protocol, hostname, path } = parseUrl(url)
   const client = net.socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0)
-  const buf = new ArrayBuffer(16384)
+  const buf = new ArrayBuffer(65536)
   const socket = {
     url,
-    fileName,
     protocol,
     hostname,
     path,
@@ -191,17 +192,26 @@ function fetch (url, fileName) {
 
 function download (args, onEnd) {
   const url = args[0]
-  const fileName = args[1] || './download.tar.gz'
-  const file = { fileName, size: 0 }
+  let fileName = args[1]
   return new Promise((resolve, reject) => {
-    const socket = fetch(url, fileName)
+    const socket = fetch(url)
     const { buf } = socket
-    socket.file = file
     socket.onSecure = () => {
       socket.write(buf, buf.writeString(`GET ${socket.path} HTTP/1.1\r\nUser-Agent: curl/7.58.0\r\nAccept: */*\r\nHost: ${socket.hostname}\r\n\r\n`))
     }
     socket.onResponse = res => {
       if (res.statusCode === 200) {
+        if (!fileName) {
+          const disposition = res.headers['Content-Disposition']
+          if (disposition) {
+            const [key, value] = disposition.split(';').map(v => v.trim())
+            if (key === 'attachment') {
+              const [, fName] = value.split('=')
+              fileName = fName
+            }
+          }
+        }
+        const file = { size: 0, fileName }
         res.file = file
         file.fd = just.fs.open(fileName, just.fs.O_WRONLY | just.fs.O_CREAT | just.fs.O_TRUNC)
         if (file.fd < 3) return socket.close(new Error(`failed to open output file ${fileName}`))
