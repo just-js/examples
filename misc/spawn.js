@@ -20,7 +20,7 @@ function onTimer () {
   for (const thread of threads) {
     total += Atomics.exchange(thread.u32, 0, 0)
   }
-  just.print(`total ${total} mem ${rss} cpu (${upc.toFixed(2)}/${spc.toFixed(2)}) ${(upc + spc).toFixed(2)} qps/core ${(total / (upc + spc)).toFixed(2)}`)
+  just.print(`threads ${threads.length} total ${total} mem ${rss} cpu (${upc.toFixed(2)}/${spc.toFixed(2)}) ${(upc + spc).toFixed(2)} qps/core ${(total / (upc + spc)).toFixed(2)}`)
 }
 
 const last = { user: 0, system: 0 }
