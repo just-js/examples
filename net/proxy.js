@@ -7,7 +7,7 @@ const { parse } = require('pg.js')
 const frontend = net.socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0)
 let r = net.setsockopt(frontend, SOL_SOCKET, SO_REUSEADDR, 1)
 r = net.setsockopt(frontend, SOL_SOCKET, SO_REUSEPORT, 1)
-r = net.bind(frontend, '127.0.0.1', 5431)
+r = net.bind(frontend, '127.0.0.1', 5432)
 if (r !== 0) throw new Error('bind')
 r = net.listen(frontend, SOMAXCONN)
 const buf = new ArrayBuffer(4096)
@@ -18,7 +18,7 @@ loop.add(frontend, (fd, event) => {
   if (event & EPOLLIN) {
     const client = net.accept(fd)
     const backend = net.socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0)
-    net.connect(backend, '127.0.0.1', 5432)
+    net.connect(backend, '127.0.0.1', 5431)
     loop.add(backend, (fd, event) => {
       if (event & EPOLLOUT) {
         loop.update(fd, EPOLLIN)
