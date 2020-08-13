@@ -157,7 +157,7 @@ function parseUrl (url) {
   return { protocol, hostname, path }
 }
 
-function fetch (url) {
+function download (url) {
   const context = tls.clientContext(new ArrayBuffer(0))
   const { protocol, hostname, path } = parseUrl(url)
   const client = net.socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0)
@@ -190,11 +190,9 @@ function fetch (url) {
   return socket
 }
 
-function download (args, onEnd) {
-  const url = args[0]
-  let fileName = args[1]
+function fetch (url, fileName) {
   return new Promise((resolve, reject) => {
-    const socket = fetch(url)
+    const socket = download(url)
     const { buf } = socket
     socket.onSecure = () => {
       socket.write(buf, buf.writeString(`GET ${socket.path} HTTP/1.1\r\nUser-Agent: curl/7.58.0\r\nAccept: */*\r\nHost: ${socket.hostname}\r\n\r\n`))

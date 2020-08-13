@@ -1,8 +1,9 @@
-const { download } = require('fetch.js')
+const { fetch } = require('fetch.js')
 
 async function main () {
-  const res = await download(just.args.slice(2))
-  just.print(JSON.stringify(res, null, '  '))
+  const [url, fileName] = just.args.slice(2)
+  const result = await fetch(url, fileName)
+  just.print(JSON.stringify(result, null, '  '))
 }
 
 main().catch(err => just.error(err.stack))
