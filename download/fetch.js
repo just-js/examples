@@ -3,7 +3,7 @@ const { tls } = just.library('openssl.so', 'tls')
 const { AF_INET, SOCK_STREAM, SOCK_NONBLOCK, SOL_SOCKET, IPPROTO_TCP, TCP_NODELAY, SO_KEEPALIVE, EAGAIN } = net
 const { EPOLLERR, EPOLLHUP, EPOLLIN, EPOLLOUT } = just.loop
 const { loop } = just.factory
-const { create, parse } = just.require('dns.js')
+const { create, parse } = require('dns.js')
 const { createParser, HTTP_RESPONSE, HTTP_CHUNKED } = require('protocol.js')
 
 function lookup (query = 'www.google.com', onRecord = () => {}, address = '8.8.8.8', port = 53, buf = new ArrayBuffer(65536)) {
