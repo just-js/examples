@@ -2,7 +2,7 @@ const { sys, print, net, signal } = just
 const { EPOLLIN, EPOLLET } = just.loop
 const { EAGAIN } = net
 const { SIGUSR1, SIGHUP } = sys
-const { signalfd, sigemptyset, sigaddset, sigprocmask, SIG_BLOCK } = signal
+const { signalfd, sigemptyset, sigaddset, sigprocmask, SIG_BLOCK, SIG_SETMASK } = signal
 
 const { loop } = just.factory
 
@@ -53,7 +53,7 @@ loop.add(sigfd, (fd, event) => {
     }
     onSignal(siginfo)
   }
-})
+}, EPOLLIN | EPOLLET)
 
 let counter = 0
 
@@ -67,8 +67,10 @@ just.setInterval(() => {
 }, 1000)
 
 while (loop.count > 0) {
-  loop.poll(0, sigmask)
+  const r = loop.poll(1, sigmask)
+  if (r === -1) {
+    just.print('oh')
+  }
   sys.runMicroTasks()
 }
-just.print('ok')
 net.close(loop.fd)
