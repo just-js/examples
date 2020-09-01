@@ -1,5 +1,5 @@
 const { net, sys } = just
-const zlib = require('./zlib.js')
+const { zlib } = just.library('zlib.so', 'zlib')
 const { STDIN_FILENO, STDOUT_FILENO } = sys
 
 const BUFSIZE = 64 * 1024
