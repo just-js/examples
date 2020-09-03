@@ -1,8 +1,9 @@
-function spawn (fn, onComplete) {
+function spawn (fn, cpu, onComplete) {
   let source = fn.toString()
   source = source.slice(source.indexOf('{') + 1, source.lastIndexOf('}')).trim()
   const tid = just.thread.spawn(source)
   const thread = { tid, onComplete }
+  just.thread.setAffinity(tid, cpu)
   threads.push(thread)
   return thread
 }
@@ -23,11 +24,15 @@ const timer = just.setInterval(() => {
 }, 1000)
 
 function threadOne () {
-  let count = 0
-  const timer = just.setInterval(() => {
-    if (count++ === 5) just.clearInterval(timer)
-    just.print(`${just.thread.self()} running`)
-  }, 1000)
+  const b = new ArrayBuffer(1000)
+  const dv = new DataView(b)
+  function next () {
+    for (let i = 0; i < b.byteLength; i++) {
+      dv.setUint8(i, Math.ceil(Math.random() * 255))
+    }
+    just.sys.nextTick(next)
+  }
+  next()
 }
 
 function onComplete (tid, rc) {
@@ -36,6 +41,6 @@ function onComplete (tid, rc) {
   if (!threads.length) just.clearInterval(timer)
 }
 
-spawn(threadOne, onComplete)
-spawn(threadOne, onComplete)
-spawn(threadOne, onComplete)
+spawn(threadOne, 5, onComplete)
+spawn(threadOne, 6, onComplete)
+spawn(threadOne, 7, onComplete)
