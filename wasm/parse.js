@@ -1,6 +1,6 @@
 const { compile, save, evaluate, createMemory } = require('../../modules/wasm/wasm.js')
 const { loop } = just.factory
-const { http } = just.library('../../modules/picohttp/http.so', 'http')
+const { http } = just.library('http.so', 'http')
 const { parseRequests } = http
 
 async function main () {
@@ -18,13 +18,13 @@ async function main () {
   const len = buffer.writeString(str, startData)
   let bytes = 0
   function test () {
-    for (let i = 0; i < 10000; i++) {
+    for (let i = 0; i < 1000; i++) {
       requests += parse(startData, len + startData)
       //requests += parseRequests(buffer, len, startData)
       bytes += len
-      loop.poll(0)
-      just.sys.runMicroTasks()
     }
+    loop.poll(0)
+    just.sys.runMicroTasks()
   }
   just.setInterval(() => {
     const rss = just.memoryUsage().rss
