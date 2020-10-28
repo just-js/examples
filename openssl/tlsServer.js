@@ -1,5 +1,6 @@
 const { net, sys } = just
 const { tls } = just.library('openssl.so', 'tls')
+const { SSL_OP_ALL, SSL_OP_NO_RENEGOTIATION, SSL_OP_NO_SSLv3, SSL_OP_NO_TLSv1, SSL_OP_NO_TLSv1_1, SSL_OP_NO_DTLSv1, SSL_OP_NO_DTLSv1_2 } = tls
 const { AF_INET, SOCK_STREAM, SOCK_NONBLOCK, SOL_SOCKET, SO_REUSEADDR, SO_REUSEPORT, SOMAXCONN, IPPROTO_TCP, TCP_NODELAY, SO_KEEPALIVE, O_NONBLOCK, EAGAIN } = net
 const { loop } = just.factory
 const { EPOLLERR, EPOLLHUP, EPOLLIN, EPOLLOUT } = just.loop
@@ -51,7 +52,6 @@ function onSocketEvent (fd, event) {
   if (event & EPOLLIN) {
     const bytes = tls.read(buf)
     if (bytes > 0) {
-      //just.print(buf.readString(bytes))
       tls.write(buf, buf.writeString('HTTP/1.1 200 OK \r\nContent-Length: 0\r\n\r\n'))
       return
     }
@@ -67,7 +67,7 @@ function onSocketEvent (fd, event) {
     }
     const err = tls.error(buf, bytes)
     if (err === tls.SSL_ERROR_ZERO_RETURN) {
-      //just.print('tls read error: ssl has been shut down')
+      just.print('tls read error: ssl has been shut down')
     } else {
       just.print('tls read error: connection has been aborted')
     }
@@ -94,7 +94,8 @@ function onTimer () {
 just.setInterval(onTimer, 1000)
 
 const BUFSIZE = 16384
-const context = tls.serverContext(new ArrayBuffer(0), 'cert.pem', 'key.pem')
+const options = BigInt(SSL_OP_ALL | SSL_OP_NO_RENEGOTIATION | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1 | SSL_OP_NO_DTLSv1 | SSL_OP_NO_DTLSv1_2)
+const context = tls.serverContext(new ArrayBuffer(0), 'cert.pem', 'key.pem', options)
 const sockets = {}
 const server = net.socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0)
 net.setsockopt(server, SOL_SOCKET, SO_REUSEADDR, 1)
