@@ -1,4 +1,5 @@
 const { udp, net, sys } = just
+const path = require('path')
 const { tls } = just.library('openssl.so', 'tls')
 const { AF_INET, SOCK_STREAM, SOCK_NONBLOCK, SOL_SOCKET, IPPROTO_TCP, TCP_NODELAY, SO_KEEPALIVE, EAGAIN } = net
 const { EPOLLERR, EPOLLHUP, EPOLLIN, EPOLLOUT } = just.loop
@@ -179,7 +180,7 @@ function download (url) {
   sockets[client] = socket
   lookup(hostname, record => {
     const { message } = record
-    const { ip } = message.answer[0]
+    const { ip } = message.answer.filter(v => v.qtype === 1)[0]
     const r = net.connect(client, `${ip[0]}.${ip[1]}.${ip[2]}.${ip[3]}`, 443)
     if (r < 0) {
       const errno = sys.errno()
@@ -209,7 +210,10 @@ function fetch (url, fileName) {
             }
           }
         }
-        if (!fileName) throw new Error('no filename provided and none found in response headers')
+        if (!fileName) {
+          fileName = path.fileName(url)
+          // todo: check Content-Type header for file extension if we don't have a fileName
+        }
         const file = { size: 0, fileName }
         res.file = file
         file.fd = just.fs.open(fileName, just.fs.O_WRONLY | just.fs.O_CREAT | just.fs.O_TRUNC)
