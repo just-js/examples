@@ -1,9 +1,14 @@
-const buf = new ArrayBuffer(65536)
+const { net, sys, print, error } = just
+const { read } = net
+const { exit, strerror, errno, STDIN_FILENO } = sys
+const BUFSIZE = 65536
+
+const buf = new ArrayBuffer(BUFSIZE)
 let size = 0
 let n = 0
-while ((n = just.net.read(just.sys.STDIN_FILENO, buf))) size += n
+while ((n = read(STDIN_FILENO, buf))) size += n
 if (n < 0) {
-  just.error(`read: ${just.sys.strerror(just.sys.errno())} (${just.sys.errno()})`)
-  just.sys.exit(1)
+  error(`read: ${strerror(errno())} (${errno()})`)
+  exit(1)
 }
-just.print(size)
+print(`size: ${size}`)

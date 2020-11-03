@@ -9,10 +9,11 @@ const { createParser, HTTP_RESPONSE, HTTP_CHUNKED } = require('protocol.js')
 
 function lookup (query = 'www.google.com', onRecord = () => {}, address = '8.8.8.8', port = 53, buf = new ArrayBuffer(65536)) {
   const fd = net.socket(net.AF_INET, net.SOCK_DGRAM | net.SOCK_NONBLOCK, 0)
+  const { byteLength } = buf
   net.bind(fd, address, port)
   loop.add(fd, (fd, event) => {
     const answer = []
-    const len = udp.recvmsg(fd, buf, answer)
+    const len = udp.recvmsg(fd, buf, answer, byteLength)
     const [address, port] = answer
     const message = { length: len, address, port, message: parse(buf, len) }
     loop.remove(fd)

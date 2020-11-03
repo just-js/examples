@@ -26,7 +26,7 @@ while (Atomics.load(u32, 0) < 10000) {
   for (let j = 0; j < parallel; j++) {
     tids.push(just.thread.spawn(source, shared))
   }
-  r = loop.wait(loopfd, evbuf, 0)
+  r = loop.wait(loopfd, evbuf, 0, EVENTS)
   let off = 0
   for (let i = 0; i < r; i++) {
     const fd = events[off + 1]
