@@ -10,7 +10,7 @@ class SystemError {
     this.name = 'SystemError'
     this.message = `${syscall} (${sys.errno()}) ${sys.strerror(sys.errno())}`
     Error.captureStackTrace(this, this.constructor)
-    this.stack = this.stack.split('\n').slice(0, -3).join('\n')
+    this.stack = this.stack.split('\n').slice(0, -4).join('\n')
   }
 }
 
@@ -25,7 +25,7 @@ function tcpDump (packet) {
   return `
 ${AM}Eth  ${AD}: ${AM}${toMAC(frame.source)}${AD} -> ${AM}${toMAC(frame.dest)}${AD}
 ${AG}${frame.protocol.padEnd(4, ' ')} ${AD}:  ${AG}${source}${AD} -> ${AG}${dest}${AD}
-${AY}TCP  ${AD}:   ${AY}${pad(message.source, 5)}${AD} -> ${AY}${pad(message.dest, 5)}${AD} seq ${AY}${pad(seq)}${AD} ack ${AY}${pad(ack)}${AD} (${AC}${getFlags(flags)}${AD})
+${AY}TCP  ${AD}:   ${AY}${pad(message.source, 5)}${AD} -> ${AY}${pad(message.dest, 5)}${AD} seq ${AY}${pad(seq)}${AD} ack ${AY}${pad(ack)}${AD} (${AC}${getFlags(flags).join(' ')}${AD})
 `.trim()
 }
 
@@ -35,6 +35,7 @@ function onPacket (packet) {
     // tcp frames
     just.print(tcpDump(packet))
     if (bytes > offset) just.print(dump(u8.slice(offset, bytes)), false)
+    just.print('')
   } else if (frame && frame.protocol === 'IPv4' && header && header.protocol === protocols.UDP) {
     // ignore
   } else {
@@ -50,7 +51,7 @@ function main (args) {
   const fd = net.socket(PF_PACKET, SOCK_RAW, htons16(ETH_P_ALL))
   if (fd < 0) throw new SystemError('socket')
   if (iff) {
-    // bin to a specific interface
+    // bind to a specific interface
     const r = net.bindInterface(fd, iff, AF_PACKET, htons16(ETH_P_ALL))
     if (r < 0) throw new SystemError('bind')
   }

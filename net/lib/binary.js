@@ -56,7 +56,7 @@ function htons16 (n) {
 }
 
 function getFlags (flags) {
-  return Object.keys(flags).filter(v => flags[v]).join(' ')
+  return Object.keys(flags).filter(v => flags[v])
 }
 
 const ANSI = { AD, AY, AM, AC, AG }
