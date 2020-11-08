@@ -10,4 +10,9 @@ const files = [
   'lib/connection.js'
 ]
 
-module.exports = { files }
+const modules = [
+  { name: 'http', obj: ['modules/http/http.o', 'modules/http/picohttpparser.o'] },
+  { name: 'html', obj: ['modules/html/html.o'] }
+]
+
+module.exports = { files, modules }

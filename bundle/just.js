@@ -152,7 +152,7 @@ function runScript (script, name) {
 }
 
 function loadLibrary (path, name) {
-  const handle = just.sys.dlopen(path, just.sys.RTLD_LAZY)
+  const handle = just.sys.dlopen()
   if (!handle) return
   const ptr = just.sys.dlsym(handle, `_register_${name}`)
   if (!ptr) return
