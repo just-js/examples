@@ -10,6 +10,8 @@ const files = [
   'lib/connection.js'
 ]
 
+const version = '0.0.1'
+
 const capabilities = [] // list of allowed internal modules, api calls etc. TBD
 
 const modules = [{
@@ -25,4 +27,4 @@ const modules = [{
   ]
 }]
 
-module.exports = { files, modules, capabilities }
+module.exports = { version, files, modules, capabilities }

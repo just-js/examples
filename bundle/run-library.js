@@ -76,7 +76,6 @@ server.onConnect = socket => {
   const parser = createParser(buf)
   parser.onRequests = count => {
     for (const request of parser.get(count)) {
-      just.print(JSON.stringify(request))
       socket.writeString('HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n')
     }
   }

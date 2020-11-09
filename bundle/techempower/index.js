@@ -425,6 +425,7 @@ just.setInterval(() => {
   rJSON = `HTTP/1.1 200 OK\r\nServer: j\r\nDate: ${time}\r\nContent-Type: application/json\r\nContent-Length: `
   r404 = `HTTP/1.1 404 Not Found\r\nServer: j\r\nDate: ${time}\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n`
 }, 100)
+just.print(`version ${require('config.js').version}`)
 while (1) {
   if (loop.poll(0) === 0) loop.poll(-1)
   if (microtasks) just.sys.runMicroTasks()
