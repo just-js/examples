@@ -10,9 +10,19 @@ const files = [
   'lib/connection.js'
 ]
 
-const modules = [
-  { name: 'http', obj: ['modules/http/http.o', 'modules/http/picohttpparser.o'] },
-  { name: 'html', obj: ['modules/html/html.o'] }
-]
+const capabilities = [] // list of allowed internal modules, api calls etc. TBD
 
-module.exports = { files, modules }
+const modules = [{
+  name: 'http',
+  obj: [
+    'modules/http/http.o',
+    'modules/http/picohttpparser.o'
+  ]
+}, {
+  name: 'html',
+  obj: [
+    'modules/html/html.o'
+  ]
+}]
+
+module.exports = { files, modules, capabilities }

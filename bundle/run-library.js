@@ -46,9 +46,10 @@ async function run (name) {
   for (const file of files) {
     requireCache(handle, file)
   }
-  const main = loadSymbolFile(handle, `${name}/index.js`).readString()
+  requireCache(handle, `${name}/index.js`)
   global.require = requireInternal
-  just.vm.runScript(main, `${name}/index.js`)
+  const foo = require('index.js')
+  just.print(JSON.stringify(foo))
 }
 
 run(just.args[2]).catch(err => just.error(err.stack))

@@ -6,3 +6,4 @@ tmp
 *.png
 *.pem
 .just
+*.so
