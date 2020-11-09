@@ -14,7 +14,6 @@ global.onUnhandledRejection = (...args) => {
 }
 
 function curl (args) {
-  just.print(JSON.stringify(args))
   const stdin = createPipe()
   const stdout = createPipe()
   const stderr = createPipe()

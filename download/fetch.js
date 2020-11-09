@@ -59,6 +59,7 @@ function onSocketEvent (fd, event) {
       socket.parser.onResponses = count => {
         for (const res of socket.parser.get(count)) {
           socket.onResponse(res)
+          just.print(res.statusCode)
           if (res.statusCode === 200) {
             const contentLength = parseInt(res.headers['Content-Length'] || 0, 10)
             let total = 0
@@ -99,6 +100,9 @@ function onSocketEvent (fd, event) {
               delete socket.parser
             }
             buf.offset = 0
+          } else if (res.statusCode === 302) {
+            const { location } = res.headers
+            just.print(`redirect ${location}`)
           }
         }
       }
@@ -124,7 +128,10 @@ function onSocketEvent (fd, event) {
     const bytes = tls.read(buf, buf.byteLength - buf.offset, buf.offset)
     if (bytes > 0) {
       if (socket.onData) socket.onData(bytes)
-      if (socket.parser) socket.parser.parse(bytes)
+      if (socket.parser) {
+        //just.print(buf.readString(bytes))
+        socket.parser.parse(bytes)
+      }
       return
     }
     if (bytes < 0) {
