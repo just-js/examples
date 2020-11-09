@@ -1,4 +1,5 @@
 const { join, baseName } = require('path')
+const _require = global.require
 
 function loadSymbolFile (handle, path) {
   path = path.replace(/[./]/g, '_')
@@ -9,10 +10,15 @@ function loadSymbolFile (handle, path) {
   return just.sys.readMemory(start, end)
 }
 
-function requireInternal (path, parent = { dirName: '' }) {
+function requireInternal (...args) {
+  const [path, parent = { dirName: '' }] = args
   const ext = path.split('.').slice(-1)[0]
   if (ext === 'js' || ext === 'json') {
-    return just.requireCache[join(parent.dirName, path)].exports
+    const module = just.requireCache[join(parent.dirName, path)]
+    if (!module) {
+      return _require(...args)
+    }
+    return module.exports
   }
   return just.requireNative(path, parent)
 }
@@ -30,10 +36,13 @@ function requireCache (handle, path) {
   const fileName = path.slice(path.indexOf('/') + 1)
   just.requireCache[fileName] = module
   fun.call(exports, exports, p => requireInternal(p, module), module)
+  return module
 }
 
-async function run (name) {
-  const handle = just.sys.dlopen(`.just/${name}.so`)
+function requireShared (...args) {
+  const [path] = args
+  const name = 'module'
+  const handle = just.sys.dlopen(path)
   function loadLibrary (path, name) {
     const ptr = just.sys.dlsym(handle, `_register_${name}`)
     if (!ptr) return
@@ -46,10 +55,32 @@ async function run (name) {
   for (const file of files) {
     requireCache(handle, file)
   }
-  requireCache(handle, `${name}/index.js`)
+  const module = requireCache(handle, `${name}/index.js`)
   global.require = requireInternal
-  const foo = require('index.js')
-  just.print(JSON.stringify(foo))
+  return module.exports
 }
 
-run(just.args[2]).catch(err => just.error(err.stack))
+global.require = just.require = (...args) => {
+  const [path] = args
+  const ext = path.split('.').slice(-1)[0]
+  if (ext === 'so') {
+    return requireShared(...args)
+  }
+  return _require(...args)
+}
+
+const { createServer, createParser } = require('.just/module.so')
+const server = createServer()
+server.onConnect = socket => {
+  const buf = new ArrayBuffer(4096)
+  const parser = createParser(buf)
+  parser.onRequests = count => {
+    for (const request of parser.get(count)) {
+      just.print(JSON.stringify(request))
+      socket.writeString('HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n')
+    }
+  }
+  socket.onData = len => parser.parse(len)
+  return buf
+}
+server.listen()

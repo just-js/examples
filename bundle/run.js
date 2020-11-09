@@ -1,4 +1,5 @@
 const { join, baseName } = require('path')
+const _require = require
 
 function loadSymbolFile (handle, path) {
   path = path.replace(/[./]/g, '_')
@@ -9,10 +10,15 @@ function loadSymbolFile (handle, path) {
   return just.sys.readMemory(start, end)
 }
 
-function requireInternal (path, parent = { dirName: '' }) {
+function requireInternal (...args) {
+  const [path, parent = { dirName: '' }] = args
   const ext = path.split('.').slice(-1)[0]
   if (ext === 'js' || ext === 'json') {
-    return just.requireCache[join(parent.dirName, path)].exports
+    const module = just.requireCache[join(parent.dirName, path)]
+    if (!module) {
+      return _require(...args)
+    }
+    return module.exports
   }
   return just.requireNative(path, parent)
 }
