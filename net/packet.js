@@ -52,8 +52,12 @@ function main (args) {
   if (fd < 0) throw new SystemError('socket')
   if (iff) {
     // bind to a specific interface
-    const r = net.bindInterface(fd, iff, AF_PACKET, htons16(ETH_P_ALL))
-    if (r < 0) throw new SystemError('bind')
+    const b = new ArrayBuffer(6)
+    let r = net.getMacAddress(fd, iff, b)
+    if (r < 0) throw new SystemError('getMacAddress')
+    just.print(toMAC(new Uint8Array(b)))
+    r = net.bindInterface(fd, iff, AF_PACKET, htons16(ETH_P_ALL))
+    if (r < 0) throw new SystemError('bindInterface')
   }
   while (1) {
     const bytes = net.recv(fd, buf)

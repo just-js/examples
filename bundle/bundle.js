@@ -1,20 +1,9 @@
-const { launch } = require('lib/process.js')
-const { waitpid } = just.sys
+const { launch, watch, setNonBlocking } = require('lib/process.js')
 const { isFile, isDir } = require('fs')
+const { STDOUT_FILENO, STDERR_FILENO } = just.sys
 
-function watch (p) {
-  return new Promise((resolve, reject) => {
-    p.onStderr = p.onStdout = (buf, len) => just.net.write(just.sys.STDOUT_FILENO, buf, len)
-    const timer = just.setInterval(() => {
-      const [status, kpid] = waitpid(new Uint32Array(2), p.pid)
-      if (kpid === p.pid) {
-        just.sys.nextTick(() => just.clearInterval(timer))
-        if (status !== 0) return reject(new Error(`Bad Status ${status}`))
-        resolve()
-      }
-    }, 10)
-  })
-}
+setNonBlocking(STDOUT_FILENO)
+setNonBlocking(STDERR_FILENO)
 
 function library (name, obj = [], lib = []) {
   lib = lib.map(v => `-l${v}`).join(' ')
@@ -46,16 +35,20 @@ async function bundleExecutable (name) {
   const config = require(`${name}/config.js`)
   const files = config.files.map(v => `${name}/${v}`)
   just.fs.mkdir('.just')
-  await link('.just/bundle.o', ...[...files, `${name}/index.js`, `${name}/config.js`])
-  await cp('just.js', '.just/just.js')
+  let status = await link('.just/bundle.o', ...[...files, `${name}/index.js`, `${name}/config.js`])
+  just.print(`link ${status}`)
+  status = await cp('just.js', '.just/just.js')
+  just.print(`cp ${status}`)
   if (!isFile('.just/just.o')) {
     just.print('building runtime')
-    await build('runtime')
+    status = await build('runtime')
+    just.print(`build ${status}`)
   }
   if (config.modules && config.modules.length) {
     if (!isDir('.just/modules')) {
       just.print('downloading modules')
-      await build('modules')
+      status = await build('modules')
+      just.print(`build ${status}`)
     }
     let obj = []
     let lib = []
@@ -65,28 +58,33 @@ async function bundleExecutable (name) {
       })
       if (missing) {
         just.print(`building ${module.name} module`)
-        await build(`MODULE=${module.name}`, 'module-static')
+        status = await build(`MODULE=${module.name}`, 'module-static')
+        just.print(`build ${module.name} module-static ${status}`)
       }
       obj = obj.concat(module.obj.map(v => `.just/${v}`))
       if (module.lib && module.lib.length) lib = lib.concat(module.lib)
     }
     just.print(`building .just/${name}`)
-    await bundle(name, obj, lib)
+    status = await bundle(name, obj, lib)
+    just.print(`bundle ${status}`)
     return
   }
   just.print(`building .just/${name}`)
-  await bundle(name)
+  status = await bundle(name)
+  just.print(`bundle ${status}`)
 }
 
 async function bundleLibrary (name) {
   const config = require(`${name}/config.js`)
   const files = config.files.map(v => `${name}/${v}`)
   just.fs.mkdir('.just')
-  await link('.just/bundle.o', ...[...files, `${name}/index.js`, `${name}/config.js`])
+  let status = await link('.just/bundle.o', ...[...files, `${name}/index.js`, `${name}/config.js`])
+  just.print(`link ${status}`)
   if (config.modules && config.modules.length) {
     if (!isDir('.just/modules')) {
       just.print('downloading modules')
-      await build('modules')
+      status = await build('modules')
+      just.print(`build modules ${status}`)
     }
     let obj = []
     let lib = []
@@ -96,17 +94,20 @@ async function bundleLibrary (name) {
       })
       if (missing) {
         just.print(`building ${module.name} module`)
-        await build(`MODULE=${module.name}`, 'module')
+        status = await build(`MODULE=${module.name}`, 'module')
+        just.print(`build ${module.name} ${status}`)
       }
       obj = obj.concat(module.obj.map(v => `.just/${v}`))
       if (module.lib && module.lib.length) lib = lib.concat(module.lib)
     }
     just.print(`building .just/${name}.so`)
-    await library(name, obj, lib)
+    status = await library(name, obj, lib)
+    just.print(`library ${status}`)
     return
   }
   just.print(`building .just/${name}.so`)
-  await library(name)
+  status = await library(name)
+  just.print(`library ${status}`)
 }
 
 const shared = just.args.slice(1).some(arg => (arg === '--shared'))

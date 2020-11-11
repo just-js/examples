@@ -1,5 +1,5 @@
 const { cwd, errno, strerror, spawn, fcntl, waitpid, FD_CLOEXEC } = just.sys
-const { pipe, write, close, read, O_NONBLOCK } = just.net
+const { pipe, write, close, read, O_NONBLOCK, O_CLOEXEC } = just.net
 const { EPOLLERR, EPOLLHUP, EPOLLIN, EPOLLOUT } = just.loop
 const { loop } = just.factory
 
@@ -12,11 +12,7 @@ function setNonBlocking (fd) {
 
 function createPipe () {
   const fds = []
-  const r = pipe(fds)
-  setNonBlocking(fds[0])
-  setNonBlocking(fds[1])
-  fcntl(fds[0], just.sys.F_SETFD, FD_CLOEXEC)
-  fcntl(fds[1], just.sys.F_SETFD, FD_CLOEXEC)
+  const r = pipe(fds, O_CLOEXEC | O_NONBLOCK)
   if (r !== 0) throw new Error(`pipe ${r} errno ${errno()} : ${strerror(errno())}`)
   return fds
 }
@@ -92,8 +88,8 @@ function watch (p) {
     const timer = just.setInterval(() => {
       const [status, kpid] = waitpid(new Uint32Array(2), p.pid)
       if (kpid === p.pid) {
-        resolve(status)
         just.clearInterval(timer)
+        resolve(status)
       }
     }, 10)
   })

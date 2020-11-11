@@ -1,9 +1,8 @@
 const { sys, print, net, signal } = just
-const { EPOLLIN, EPOLLET } = just.loop
+const { EPOLLIN } = just.loop
 const { EAGAIN } = net
-const { SIGUSR1, SIGHUP } = sys
-const { signalfd, sigemptyset, sigaddset, sigprocmask, SIG_BLOCK, SIG_SETMASK } = signal
-
+const { signalfd, sigaddset, sigprocmask } = signal
+const { dump } = require('../net/lib/binary.js')
 const { loop } = just.factory
 
 const stringify = (o, sp = '  ') => JSON.stringify(o, (k, v) => (typeof v === 'bigint') ? v.toString() : v, sp)
@@ -29,15 +28,17 @@ function onSignal (siginfo) {
   print(stringify({ signo, errno, code, pid, uid, fd, tid, band, overrun, trapno, status, int, ptr, utime, stime, addr }))
 }
 
-const sigmask = new ArrayBuffer(128)
-const siginfo = new ArrayBuffer(128)
+const sigmask = new ArrayBuffer(1024)
+const siginfo = new ArrayBuffer(1024)
 
-sigemptyset(sigmask)
-sigaddset(sigmask, SIGUSR1)
-sigaddset(sigmask, SIGHUP)
-sigprocmask(sigmask, SIG_BLOCK)
-
+let r = sigprocmask(sigmask, signal.SIG_SETMASK, 1)
+just.print(`sigprocmask ${r}\n${dump(new Uint8Array(sigmask))}`)
+r = sigaddset(sigmask, signal.SIGUSR1)
+just.print(`sigaddset ${r}\n${dump(new Uint8Array(sigmask))}`)
+r = sigprocmask(sigmask, signal.SIG_SETMASK, 0)
+just.print(`sigprocmask ${r}\n${dump(new Uint8Array(sigmask))}`)
 const sigfd = signalfd(sigmask)
+just.print(`signalfd ${sigfd}\n${dump(new Uint8Array(sigmask))}`)
 
 loop.add(sigfd, (fd, event) => {
   just.print('event')
@@ -53,21 +54,12 @@ loop.add(sigfd, (fd, event) => {
     }
     onSignal(siginfo)
   }
-}, EPOLLIN | EPOLLET)
+}, EPOLLIN)
 
-let counter = 0
-
-just.setInterval(() => {
-  counter++
-  if (counter % 2 === 0) {
-    sys.kill(sys.pid(), SIGUSR1)
-  } else {
-    sys.kill(sys.pid(), SIGHUP)
-  }
-}, 1000)
-
+just.print(just.sys.pid())
 while (loop.count > 0) {
-  const r = loop.poll(1, sigmask)
+  const r = loop.poll(-1, sigmask)
+  just.print(r)
   if (r === -1) {
     just.print('oh')
   }
