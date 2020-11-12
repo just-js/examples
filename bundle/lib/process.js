@@ -2,6 +2,10 @@ const { cwd, errno, strerror, spawn, fcntl, waitpid, FD_CLOEXEC } = just.sys
 const { pipe, write, close, read, O_NONBLOCK, O_CLOEXEC } = just.net
 const { EPOLLERR, EPOLLHUP, EPOLLIN, EPOLLOUT } = just.loop
 const { loop } = just.factory
+const { STDOUT_FILENO, STDERR_FILENO } = just.sys
+
+setNonBlocking(STDOUT_FILENO)
+setNonBlocking(STDERR_FILENO)
 
 function setNonBlocking (fd) {
   let flags = fcntl(fd, just.sys.F_GETFL, 0)
@@ -19,6 +23,8 @@ function createPipe () {
 
 const READABLE = 0
 const WRITABLE = 1
+
+const processes = []
 
 function launch (program, args, workDir = cwd(), buf = new ArrayBuffer(4096)) {
   const stdin = createPipe()
@@ -80,6 +86,9 @@ function launch (program, args, workDir = cwd(), buf = new ArrayBuffer(4096)) {
     // write to our side of the stdin pipe
     return write(stdin[WRITABLE], b, len, 0)
   }
+  processes[pid] = process
+  process.onStdout = (buf, len) => just.net.write(STDOUT_FILENO, buf, len)
+  process.onStderr = (buf, len) => just.net.write(STDERR_FILENO, buf, len)
   return process
 }
 
@@ -88,8 +97,11 @@ function watch (p) {
     const timer = just.setInterval(() => {
       const [status, kpid] = waitpid(new Uint32Array(2), p.pid)
       if (kpid === p.pid) {
-        just.clearInterval(timer)
+        close(p.stdin[WRITABLE])
+        close(p.stdout[READABLE])
+        close(p.stderr[READABLE])
         resolve(status)
+        just.clearInterval(timer)
       }
     }, 10)
   })

@@ -83,7 +83,7 @@ function launch (program, args, workDir = cwd(), buf = new ArrayBuffer(4096)) {
   return process
 }
 
-function watch (p) {
+function watch (p, interval = 100) {
   return new Promise((resolve) => {
     const timer = just.setInterval(() => {
       const [status, kpid] = waitpid(new Uint32Array(2), p.pid)
@@ -91,7 +91,7 @@ function watch (p) {
         resolve(status)
         just.clearInterval(timer)
       }
-    }, 10)
+    }, interval)
   })
 }
 

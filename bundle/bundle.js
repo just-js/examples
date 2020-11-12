@@ -1,9 +1,5 @@
-const { launch, watch, setNonBlocking } = require('lib/process.js')
+const { launch, watch } = require('lib/process.js')
 const { isFile, isDir } = require('fs')
-const { STDOUT_FILENO, STDERR_FILENO } = just.sys
-
-setNonBlocking(STDOUT_FILENO)
-setNonBlocking(STDERR_FILENO)
 
 function library (name, obj = [], lib = []) {
   lib = lib.map(v => `-l${v}`).join(' ')
@@ -109,7 +105,6 @@ async function bundleLibrary (name) {
   status = await library(name)
   just.print(`library ${status}`)
 }
-
 const shared = just.args.slice(1).some(arg => (arg === '--shared'))
 if (shared) {
   bundleLibrary(just.args[2]).catch(err => just.error(err.stack))

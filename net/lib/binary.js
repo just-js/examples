@@ -47,7 +47,7 @@ function ipv42b (v) {
 }
 
 function toMAC (u8) {
-  return Array.prototype.map.call(u8, v => v.toString(16).padStart(2, '0')).join('-')
+  return Array.prototype.map.call(u8, v => v.toString(16).padStart(2, '0')).join(':')
 }
 
 function htons16 (n) {
@@ -59,5 +59,29 @@ function getFlags (flags) {
   return Object.keys(flags).filter(v => flags[v])
 }
 
+function pad (n, p = 10) {
+  return n.toString().padStart(p, ' ')
+}
+
+function tcpDump (packet) {
+  const { frame, header, message } = packet // eth frame, ip header, tcp message
+  const { seq, ack, flags } = message // get tcp fields
+  const [source, dest] = [b2ipv4(header.source), b2ipv4(header.dest)] // convert source and dest ip to human-readable
+  return `
+${AM}Eth  ${AD}: ${AM}${toMAC(frame.source)}${AD} -> ${AM}${toMAC(frame.dest)}${AD}
+${AG}${frame.protocol.padEnd(4, ' ')} ${AD}:  ${AG}${source}${AD} -> ${AG}${dest}${AD}
+${AY}TCP  ${AD}:   ${AY}${pad(message.source, 5)}${AD} -> ${AY}${pad(message.dest, 5)}${AD} seq ${AY}${pad(seq)}${AD} ack ${AY}${pad(ack)}${AD} (${AC}${getFlags(flags).join(' ')}${AD})
+`.trim()
+}
+
+function udpDump (packet) {
+  const { frame, header } = packet // eth frame, ip header, tcp message
+  const [source, dest] = [b2ipv4(header.source), b2ipv4(header.dest)] // convert source and dest ip to human-readable
+  return `
+${AM}Eth  ${AD}: ${AM}${toMAC(frame.source)}${AD} -> ${AM}${toMAC(frame.dest)}${AD}
+${AG}${frame.protocol.padEnd(4, ' ')} ${AD}:  ${AG}${source}${AD} -> ${AG}${dest}${AD}
+${AY}UDP  ${AD}:`.trim()
+}
+
 const ANSI = { AD, AY, AM, AC, AG }
-module.exports = { dump, ANSI, getFlags, htons16, toMAC, ipv42b, b2ipv4 }
+module.exports = { dump, ANSI, getFlags, htons16, toMAC, ipv42b, b2ipv4, tcpDump, udpDump }
