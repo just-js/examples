@@ -68,8 +68,8 @@ function runLarge (runs, fun) {
 }
 
 function run () {
-  runLarge(parseInt(just.args[2] || '1000000', 10), byteLength)
-  runSmall(parseInt(just.args[3] || '100000000', 10), byteLength)
+  runLarge(parseInt(just.args[2] || '1000000', 10), String.byteLength)
+  runSmall(parseInt(just.args[3] || '100000000', 10), String.byteLength)
   just.setTimeout(run, 100)
 }
 

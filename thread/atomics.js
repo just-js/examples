@@ -1,3 +1,4 @@
+just.thread = just.library('thread', 'thread.so').thread
 const { net, sys, loop } = just
 function threadMain () {
   const shared = just.buffer
@@ -15,6 +16,7 @@ const loopfd = loop.create(loop.EPOLL_CLOEXEC)
 const timerfd = sys.timer(1000, 1000)
 const shared = new SharedArrayBuffer(4)
 const u32 = new Uint32Array(shared)
+const main = just.builtin('just.js').readString()
 loop.control(loopfd, loop.EPOLL_CTL_ADD, timerfd, loop.EPOLLIN)
 let r = 0
 let rate = 0
@@ -24,7 +26,7 @@ let then = Date.now()
 while (Atomics.load(u32, 0) < 10000) {
   const tids = []
   for (let j = 0; j < parallel; j++) {
-    tids.push(just.thread.spawn(source, shared))
+    tids.push(just.thread.spawn(source, main, shared))
   }
   r = loop.wait(loopfd, evbuf, 0, EVENTS)
   let off = 0
