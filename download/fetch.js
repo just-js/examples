@@ -1,11 +1,12 @@
-const { udp, net, sys } = just
+const { net, sys } = just
 const path = require('path')
-const { tls } = just.library('openssl.so', 'tls')
+const { tls } = just.library('tls', 'openssl.so')
 const { AF_INET, SOCK_STREAM, SOCK_NONBLOCK, SOL_SOCKET, IPPROTO_TCP, TCP_NODELAY, SO_KEEPALIVE, EAGAIN } = net
 const { EPOLLERR, EPOLLHUP, EPOLLIN, EPOLLOUT } = just.loop
 const { loop } = just.factory
 const { create, parse } = require('dns.js')
 const { createParser, HTTP_RESPONSE, HTTP_CHUNKED } = require('protocol.js')
+const { udp } = just.library('udp')
 
 function lookup (query = 'www.google.com', onRecord = () => {}, address = '8.8.8.8', port = 53, buf = new ArrayBuffer(65536)) {
   const fd = net.socket(net.AF_INET, net.SOCK_DGRAM | net.SOCK_NONBLOCK, 0)
@@ -129,7 +130,6 @@ function onSocketEvent (fd, event) {
     if (bytes > 0) {
       if (socket.onData) socket.onData(bytes)
       if (socket.parser) {
-        //just.print(buf.readString(bytes))
         socket.parser.parse(bytes)
       }
       return

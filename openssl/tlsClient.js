@@ -1,5 +1,5 @@
 const { net, sys } = just
-const { tls } = just.library('openssl.so', 'tls')
+const { tls } = just.library('tls', 'openssl.so')
 const { AF_INET, SOCK_STREAM, SOCK_NONBLOCK, SOL_SOCKET, SO_REUSEADDR, SO_REUSEPORT, IPPROTO_TCP, TCP_NODELAY, SO_KEEPALIVE, EAGAIN } = net
 const { loop } = just.factory
 const { EPOLLERR, EPOLLHUP, EPOLLIN, EPOLLOUT } = just.loop
