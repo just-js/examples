@@ -1,5 +1,5 @@
 const { thread } = just.library('thread', 'thread.so')
-const { send, recv, socketpair, AF_UNIX, SOCK_STREAM } = just.net
+const { send, socketpair, AF_UNIX, SOCK_STREAM } = just.net
 const { errno, strerror } = just.sys
 
 function main () {
@@ -29,8 +29,12 @@ function threadMain () {
   while (1) {
     Atomics.add(u32, 0, 1)
     const bytes = net.recv(fd, buf)
-    just.print(`thread recv: ${sys.readString(buf, bytes)}`)
-    sys.usleep(1000000)
+    if (bytes > 0) {
+      const message = sys.readString(buf, bytes)
+      if (message === 'quit') break
+      just.print(`thread recv: ${message}`)
+    }
+    sys.usleep(1000)
   }
 }
 
@@ -38,8 +42,20 @@ const ipc = createPipe()
 const shared = new SharedArrayBuffer(4)
 const u32 = new Uint32Array(shared)
 const buf = new ArrayBuffer(128)
-thread.spawn(getSource(threadMain), getSource(main), [], shared, ipc[1])
-just.setInterval(() => {
+const tid = thread.spawn(getSource(threadMain), getSource(main), [], shared, ipc[1])
+let iter = 0
+const timer = just.setInterval(() => {
   const counter = Atomics.load(u32, 0)
-  send(ipc[0], buf, buf.writeString(`counter ${counter} rss ${just.memoryUsage().rss}`))
+  if (iter++ === 5) {
+    send(ipc[0], buf, buf.writeString('quit'))
+  } else {
+    send(ipc[0], buf, buf.writeString(`counter ${counter} rss ${just.memoryUsage().rss}`))
+  }
+  const status = []
+  const r = thread.tryJoin(tid, status)
+  if (r === 0n) {
+    // thread is complete
+    just.print(`thread complete ${status[1]}`)
+    just.clearInterval(timer)
+  }
 }, 1000)
