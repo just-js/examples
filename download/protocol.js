@@ -1,4 +1,4 @@
-const { http } = just.library('http.so', 'http')
+const { http } = just.library('http', 'http.so')
 const {
   parseResponses,
   getResponses,

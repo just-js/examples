@@ -7,7 +7,7 @@ C = GB
 L = London
 O = just js
 OU = London
-CN = just.billywhizz.io
+CN = api.billywhizz.io
 [v3_req]
 keyUsage = critical, digitalSignature, keyAgreement
 extendedKeyUsage = serverAuth

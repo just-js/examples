@@ -66,6 +66,7 @@ function main () {
       }
       if (req.url === '/favicon.ico') {
         if (sock.favicon(favicon) < 0) just.error((new SystemError('sock.favicon')).stack)
+        return
       }
     }
     if (sock.writeString(server.r404) < 0) just.error((new SystemError('sock.404')).stack)

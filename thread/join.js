@@ -1,3 +1,4 @@
+just.thread = just.library('thread', 'thread.so').thread
 function spawn (fn, onComplete) {
   let source = fn.toString()
   source = source.slice(source.indexOf('{') + 1, source.lastIndexOf('}')).trim()

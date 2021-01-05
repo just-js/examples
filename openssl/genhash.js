@@ -1,5 +1,6 @@
-const { crypto } = just.library('../../modules/openssl/openssl.so', 'crypto')
-const { sys, encode } = just
+const { crypto } = just.library('crypto', 'openssl.so')
+const { encode } = just.library('encode')
+const { sys } = just
 const { writeFile } = just.require('fs')
 const source = new ArrayBuffer(1024)
 const fd = just.fs.open('/dev/urandom')

@@ -1,3 +1,5 @@
+just.thread = just.library('thread', 'thread.so').thread
+
 function threadOne () {
   just.setInterval(() => {
     just.print('hello from thread one')
@@ -13,7 +15,7 @@ function threadTwo () {
 function spawn (fn) {
   let source = fn.toString()
   source = source.slice(source.indexOf('{') + 1, source.lastIndexOf('}')).trim()
-  return just.thread.spawn(source)
+  return just.thread.spawn(source, just.builtin('just.js'))
 }
 
 const tids = []
