@@ -1,4 +1,4 @@
-const { tcc } = just.library('tcc.so', 'tcc')
+const { tcc } = just.library('tcc')
 const source = `
 #include <stdio.h>
 #include <unistd.h>

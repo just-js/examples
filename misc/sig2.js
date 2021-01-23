@@ -1,10 +1,10 @@
 const { sys, print, net } = just
 const { signal } = just.library('signal')
-const { EPOLLIN } = just.loop
+const { EPOLLIN, EPOLLET } = just.loop
 const { EAGAIN } = net
-const { signalfd, sigaddset, sigprocmask } = signal
-const { dump } = require('@binary')
+const { signalfd, sigaddset, sigprocmask, sigemptyset } = signal
 const { loop } = just.factory
+const { dump } = require('@binary')
 
 const stringify = (o, sp = '  ') => JSON.stringify(o, (k, v) => (typeof v === 'bigint') ? v.toString() : v, sp)
 
@@ -32,16 +32,22 @@ function onSignal (siginfo) {
 const sigmask = new ArrayBuffer(1024)
 const siginfo = new ArrayBuffer(1024)
 
-let r = sigprocmask(sigmask, signal.SIG_SETMASK, 1)
-just.print(`sigprocmask ${r}\n${dump(new Uint8Array(sigmask))}`)
-r = sigaddset(sigmask, signal.SIGUSR1)
-just.print(`sigaddset ${r}\n${dump(new Uint8Array(sigmask))}`)
-r = sigprocmask(sigmask, signal.SIG_SETMASK, 0)
-just.print(`sigprocmask ${r}\n${dump(new Uint8Array(sigmask))}`)
-const sigfd = signalfd(sigmask)
-just.print(`signalfd ${sigfd}\n${dump(new Uint8Array(sigmask))}`)
+let r = 0
 
-loop.add(sigfd, (fd, event) => {
+r = sigprocmask(sigmask, signal.SIG_SETMASK, 1)
+if (r < 0) throw new SystemError('sigprocmask')
+r = sigaddset(sigmask, signal.SIGUSR1)
+if (r < 0) throw new SystemError('sigaddset')
+r = sigprocmask(sigmask, signal.SIG_SETMASK, 0)
+if (r < 0) throw new SystemError('sigprocmask')
+r = sigemptyset(sigmask)
+if (r < 0) throw new SystemError('sigemptyset')
+r = sigaddset(sigmask, signal.SIGUSR1)
+if (r < 0) throw new SystemError('sigaddset')
+const sigfd = signalfd(sigmask)
+if (sigfd <= 0) throw new SystemError('signalfd')
+
+r = loop.add(sigfd, (fd, event) => {
   just.print('event')
   if (event & EPOLLIN) {
     const bytes = net.read(fd, siginfo)
@@ -55,15 +61,6 @@ loop.add(sigfd, (fd, event) => {
     }
     onSignal(siginfo)
   }
-}, EPOLLIN)
-
+}, EPOLLIN | EPOLLET)
+if (r < 0) throw new SystemError('loop.add')
 just.print(just.sys.pid())
-while (loop.count > 0) {
-  const r = loop.poll(-1, sigmask)
-  just.print(r)
-  if (r === -1) {
-    just.print('oh')
-  }
-  sys.runMicroTasks()
-}
-net.close(loop.fd)
