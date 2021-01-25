@@ -31,7 +31,7 @@ function onSocketEvent (fd, event) {
       socket.secured = true
     } else {
       r = tls.handshake(buf)
-      tls.write(buf, buf.writeString('GET / HTTP/1.1\r\nHost: foo\r\n\r\n'))
+      tls.write(buf, buf.writeString('GET / HTTP/1.1\r\nConnection: close\r\nHost: github.com\r\n\r\n'))
     }
     if (r === 1) {
       socket.handshake = true
@@ -53,9 +53,12 @@ function onSocketEvent (fd, event) {
   }
   if (event & EPOLLIN) {
     const bytes = tls.read(buf)
+    if (bytes === 0) {
+      closeSocket(socket)
+      return
+    }
     if (bytes > 0) {
       just.print(buf.readString(bytes))
-      closeSocket(socket)
       return
     }
     if (bytes < 0) {
@@ -85,7 +88,7 @@ const BUFSIZE = 16384
 const client = net.socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0)
 net.setsockopt(client, SOL_SOCKET, SO_REUSEADDR, 1)
 net.setsockopt(client, SOL_SOCKET, SO_REUSEPORT, 1)
-net.connect(client, '127.0.0.1', 3000)
+net.connect(client, '140.82.121.3', 443)
 const buf = new ArrayBuffer(BUFSIZE)
 sockets[client] = { fd: client, buf, secured: false, handshake: false, closed: false }
 loop.add(client, onSocketEvent, EPOLLIN | EPOLLOUT)
