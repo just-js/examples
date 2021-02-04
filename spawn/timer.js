@@ -15,8 +15,5 @@ loop.add(just.sys.STDIN_FILENO, (fd, event) => {
     close(fd)
     return
   }
-  if (event & EPOLLIN) {
-    const bytes = read(fd, buf)
-    just.print(`child.stdin (${bytes}) : ${buf.readString(bytes)}`)
-  }
+  if (event & EPOLLIN) just.print(buf.readString(read(fd, buf)))
 })
