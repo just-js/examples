@@ -8,16 +8,14 @@ if (!buf) {
 }
 just.net.write(fd, buf)
 const u32 = new Uint32Array(2)
-while (1) {
-  const child = fork()
-  if (child === 0) {
-    fexecve(fd, ['sleep', '1'])
-  } else {
-    let [status, kpid] = waitpid(u32)
-    while (kpid !== child) {
-      [status, kpid] = waitpid(u32)
-      usleep(10000)
-    }
-    just.print(`sleep (${kpid}) ${status}`)
+function exec (...args) {
+  if (fork() === 0) {
+    fexecve(fd, args)
+    throw new just.SystemError('fexecve')
   }
+  return waitpid(u32, -1, 0)
+}
+while (1) {
+  const [status, pid] = exec('sleep', '10')
+  just.print(`sleep ${pid} : ${status}`)
 }
