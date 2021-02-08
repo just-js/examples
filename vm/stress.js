@@ -23,6 +23,7 @@ function next () {
   contexts.push(context)
   if (contexts.length === 1000) {
     just.clearInterval(t)
+    just.clearInterval(t2)
     require('repl').repl()
   }
 }
@@ -30,7 +31,7 @@ function next () {
 const t = just.setInterval(next, 1)
 just.print(just.sys.pid())
 let last = 0
-just.setInterval(() => {
+const t2 = just.setInterval(() => {
   const rss = just.memoryUsage().rss
   const total = BigInt(contexts.length)
   const average = rss / (total || 1n)

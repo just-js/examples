@@ -26,7 +26,4 @@ const repl = require('repl').repl()
 repl.onCommand = command => {
   return context.execute(command)
 }
-while (1) {
-  just.factory.loop.poll(10)
-  just.sys.runMicroTasks()
-}
+
