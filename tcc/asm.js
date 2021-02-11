@@ -8,6 +8,31 @@ const source = `
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <asm/unistd.h>
+
+ssize_t my_write(int fd, const void *buf, size_t size)
+{
+    ssize_t ret;
+    asm volatile
+    (
+        "syscall"
+        : "=a" (ret)
+        : "0"(1), "D"(fd), "S"(buf), "d"(size)
+        : "rcx", "r11", "memory"
+    );
+    return ret;
+}
+
+void my_exit(int exit_status) {
+    ssize_t ret;
+    __asm__ __volatile__ (
+        "syscall"
+        : "=a" (ret)
+        : "0" (60), "D" (exit_status)
+        : "cc", "rcx", "r11", "memory"
+    );
+}
+
 struct frame {
   int id;
 };
@@ -17,15 +42,14 @@ struct foo {
   struct frame* frames;
 };
 
-int _foo (struct foo** f, int i) {
+int _foo (struct foo** f) {
   struct frame* f3 = (struct frame*)calloc(1, sizeof(struct frame));
-  f3->id = 353;
+  f3->id = 999;
   struct foo* f4 = (struct foo*)calloc(1, sizeof(struct foo));
   f4->len = 1;
   f4->frames = f3;
   *f = f4;
-  fprintf(stderr, "hello %i\n", i);
-  return sizeof(struct foo) * i;
+  return sizeof(struct foo);
 }
 
 int _getchar() {
@@ -33,7 +57,6 @@ int _getchar() {
 }
 
 void _sleep (int seconds) {
-  fprintf(stderr, "sleep %i\n", seconds);
   sleep(seconds);
 }
 `
@@ -83,7 +106,7 @@ function wrapFoo () {
   const cif = new ArrayBuffer(32)
   const dv = new DataView(cif)
 
-  const status = ffi.ffiPrepCif(cif, ffi.FFI_TYPE_UINT32, [ffi.FFI_TYPE_POINTER, ffi.FFI_TYPE_UINT32])
+  const status = ffi.ffiPrepCif(cif, ffi.FFI_TYPE_UINT32, [ffi.FFI_TYPE_POINTER])
   if (status !== ffi.FFI_OK) {
     throw new Error(`Bad Status ${status}`)
   }
@@ -93,7 +116,6 @@ function wrapFoo () {
     //const dv = new DataView(b)
     dv.setBigUint64(0, b.getAddress(), true)
     just.print(dump(new Uint8Array(b)))
-    dv.setUint32(8, 2, false)
     const size = ffi.ffiCall(cif, fn)
     just.print(dump(new Uint8Array(b)))
     const dv2 = new DataView(b)
@@ -125,7 +147,7 @@ const sleep = wrapSleep()
 const getchar = wrapGetchar()
 const foo = wrapFoo()
 
-sleep(5)
+//sleep(5)
 
 /*
 let c = 0

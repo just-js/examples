@@ -1,36 +1,5 @@
-/*
-const ref = require('ref')
-const ffi = require('../')
-
-const dbName = process.argv[2] || 'test.sqlite3'
-const sqlite3 = 'void'
-const sqlite3Ptr = ref.refType(sqlite3)
-const sqlite3PtrPtr = ref.refType(sqlite3Ptr)
-const sqlite3_exec_callback = 'pointer'
-const stringPtr = ref.refType('string')
-const SQLite3 = ffi.Library('libsqlite3', {
-  sqlite3_libversion: ['string', []],
-  sqlite3_open: ['int', ['string', sqlite3PtrPtr]],
-  sqlite3_close: ['int', [sqlite3Ptr]],
-  sqlite3_changes: ['int', [sqlite3Ptr]],
-  sqlite3_exec: ['int', [sqlite3Ptr, 'string', sqlite3_exec_callback, 'void *', stringPtr]]
-})
-console.log('Using libsqlite3 version %j...', SQLite3.sqlite3_libversion())
-var db = ref.alloc(sqlite3PtrPtr)
-console.log('Opening %j...', dbName)
-SQLite3.sqlite3_open(dbName, db)
-db = db.deref()
-console.log('Creating and/or clearing foo table...')
-SQLite3.sqlite3_exec(db, 'CREATE TABLE foo (bar VARCHAR);', null, null, null)
-SQLite3.sqlite3_exec(db, 'DELETE FROM foo;', null, null, null)
-console.log('Inserting bar 5 times...')
-for (var i = 0; i < 5; i++) {
-  SQLite3.sqlite3_exec(db, 'INSERT INTO foo VALUES(\'baz' + i + '\');', null, null, null)
-}
-*/
-
-const { ffi } = just.library('ffi.so', 'ffi')
-const handle = just.sys.dlopen('/usr/lib/x86_64-linux-gnu/libsqlite3.so')
+const { ffi } = just.library('ffi', '../../modules/ffi/ffi.so')
+const handle = just.sys.dlopen('../../../sqlite/build/.libs/libsqlite3.so')
 if (!handle) throw new Error('Clould not create handle')
 
 function strlen (ptr) {
@@ -42,7 +11,9 @@ function strlen (ptr) {
   if (status !== ffi.FFI_OK) {
     throw new Error(`Bad Status ${status}`)
   }
-  dv.setBigUint64(0, ptr, true)
+  const fp = new DataView(new ArrayBuffer(8))
+  fp.setBigUint64(0, ptr, true)
+  dv.setBigUint64(0, fp.buffer.getAddress(), true)
   return ffi.ffiCall(cif, fn)
 }
 
@@ -63,18 +34,22 @@ function open (fileName) {
   const fn = just.sys.dlsym(handle, 'sqlite3_open')
   if (!fn) throw new Error('Could not find symbol')
   const cif = new ArrayBuffer(16)
-  const ptr = new ArrayBuffer(8)
-  let dv = new DataView(cif)
-  const buf = ArrayBuffer.fromString(fileName)
-  dv.setBigUint64(0, buf.getAddress(), true)
-  dv.setBigUint64(8, ptr.getAddress(), true)
   const status = ffi.ffiPrepCif(cif, ffi.FFI_TYPE_UINT32, [ffi.FFI_TYPE_POINTER, ffi.FFI_TYPE_POINTER])
   if (status !== ffi.FFI_OK) {
     throw new Error(`Bad Status ${status}`)
   }
+  const dv = new DataView(cif)
+  const buf = ArrayBuffer.fromString(`${fileName}\0`)
+  const fp = new DataView(new ArrayBuffer(8))
+  fp.setBigUint64(0, buf.getAddress(), true)
+  dv.setBigUint64(0, fp.buffer.getAddress(), true)
+  const fp3 = new DataView(new ArrayBuffer(8))
+  const fp2 = new DataView(new ArrayBuffer(8))
+  fp2.setBigUint64(0, fp3.buffer.getAddress(), true)
+  dv.setBigUint64(8, fp2.buffer.getAddress(), true)
   const r = ffi.ffiCall(cif, fn)
-  if (r < 0) return
-  return dv.getBigUint64(0, true)
+  if (r < 0) throw new Error('Bad Status')
+  return fp2.getBigUint64(0, true)
 }
 
 function close (address) {
@@ -91,35 +66,235 @@ function close (address) {
 }
 
 const constants = {
-  SQLITE_MISUSE: 21,
-  SQLITE_OK: 0
+  SQLITE_OK          : 0, // Successful result
+  SQLITE_ERROR       : 1, // Generic error
+  SQLITE_INTERNAL    : 2, // Internal logic error in SQLite
+  SQLITE_PERM        : 3, // Access permission denied
+  SQLITE_ABORT       : 4, // Callback routine requested an abort
+  SQLITE_BUSY        : 5, // The database file is locked
+  SQLITE_LOCKED      : 6, // A table in the database is locked
+  SQLITE_NOMEM       : 7, // A malloc() failed
+  SQLITE_READONLY    : 8, // Attempt to write a readonly database
+  SQLITE_INTERRUPT   : 9, // Operation terminated by sqlite3_interrupt()
+  SQLITE_IOERR      : 10, // Some kind of disk I/O error occurred
+  SQLITE_CORRUPT    : 11, // The database disk image is malformed
+  SQLITE_NOTFOUND   : 12, // Unknown opcode in sqlite3_file_control()
+  SQLITE_FULL       : 13, // Insertion failed because database is full
+  SQLITE_CANTOPEN   : 14, // Unable to open the database file
+  SQLITE_PROTOCOL   : 15, // Database lock protocol error
+  SQLITE_EMPTY      : 16, // Internal use only
+  SQLITE_SCHEMA     : 17, // The database schema changed
+  SQLITE_TOOBIG     : 18, // String or BLOB exceeds size limit
+  SQLITE_CONSTRAINT : 19, // Abort due to constraint violation
+  SQLITE_MISMATCH   : 20, // Data type mismatch
+  SQLITE_MISUSE     : 21, // Library used incorrectly
+  SQLITE_NOLFS      : 22, // Uses OS features not supported on host
+  SQLITE_AUTH       : 23, // Authorization denied
+  SQLITE_FORMAT     : 24, // Not used
+  SQLITE_RANGE      : 25, // 2nd parameter to sqlite3_bind out of range
+  SQLITE_NOTADB     : 26, // File opened that is not a database file
+  SQLITE_NOTICE     : 27, // Notifications from sqlite3_log()
+  SQLITE_WARNING    : 28, // Warnings from sqlite3_log()
+  SQLITE_ROW        : 100, // sqlite3_step() has another row ready
+  SQLITE_DONE       : 101 // sqlite3_step() has finished executing
 }
 
-function prepare (address, sql) {
+/*
+int sqlite3_prepare_v3(
+  sqlite3 *db,            // Database handle
+  const char *zSql,       // SQL statement, UTF-8 encoded
+  int nByte,              // Maximum length of zSql in bytes.
+  unsigned int prepFlags, // Zero or more SQLITE_PREPARE_ flags
+  sqlite3_stmt **ppStmt,  // OUT: Statement handle
+  const char **pzTail     // OUT: Pointer to unused portion of zSql
+);
+*/
+
+function prepare (db, sql) {
   const fn = just.sys.dlsym(handle, 'sqlite3_prepare_v3')
   if (!fn) throw new Error('Could not find symbol')
-  const cif = new ArrayBuffer(40)
+  const cif = new ArrayBuffer(128)
   const dv = new DataView(cif)
-  const status = ffi.ffiPrepCif(cif, ffi.FFI_TYPE_UINT32, [ffi.FFI_TYPE_POINTER, ffi.FFI_TYPE_POINTER, ffi.FFI_TYPE_UINT32, ffi.FFI_TYPE_UINT32, ffi.FFI_TYPE_POINTER, ffi.FFI_TYPE_POINTER])
+  let status = ffi.ffiPrepCif(cif, ffi.FFI_TYPE_UINT32, [ffi.FFI_TYPE_POINTER, ffi.FFI_TYPE_POINTER, ffi.FFI_TYPE_SINT32, ffi.FFI_TYPE_UINT32, ffi.FFI_TYPE_POINTER, ffi.FFI_TYPE_POINTER])
   if (status !== ffi.FFI_OK) {
     throw new Error(`Bad Status ${status}`)
   }
-  const str = ArrayBuffer.fromString(sql)
-  const stmt = new ArrayBuffer(8)
-  dv.setBigUint64(0, address, true)
-  dv.setBigUint64(8, str.getAddress(), true)
-  dv.setUint32(16, -1)
-  dv.setUint32(20, 0)
-  dv.setBigUint64(24, stmt.getAddress(), true)
-  dv.setBigUint64(32, 0n, true)
+  // *db
+  dv.setBigUint64(0, db, true)
+  const str = ArrayBuffer.fromString(`${sql}\0`)
+  // *zSql
+  const fp = new DataView(new ArrayBuffer(8))
+  fp.setBigUint64(0, str.getAddress(), true)
+  dv.setBigUint64(8, fp.buffer.getAddress(), true)
+  // nByte
+  const av = new DataView(new ArrayBuffer(4))
+  av.setInt32(0, -1, true)
+  dv.setBigUint64(16, av.buffer.getAddress(), true)
+  // prepFlags
+  const bv = new DataView(new ArrayBuffer(4))
+  bv.setUint32(0, 0, true)
+  dv.setBigUint64(24, av.buffer.getAddress(), true)
+  // **ppStmt
+  const pv = new DataView(new ArrayBuffer(8))
+  const fpv = new DataView(new ArrayBuffer(8))
+  pv.setBigUint64(0, fpv.buffer.getAddress(), true)
+  dv.setBigUint64(32, pv.buffer.getAddress(), true)
+  // **pzTail
+  const qv = new DataView(new ArrayBuffer(8))
+  const fqv = new DataView(new ArrayBuffer(8))
+  qv.setBigUint64(0, fqv.buffer.getAddress(), true)
+  dv.setBigUint64(40, qv.buffer.getAddress(), true)
+  status = ffi.ffiCall(cif, fn)
+  if (status !== ffi.FFI_OK) {
+    throw new Error(`Bad Status ${status}`)
+  }
+  return {
+    status,
+    stmt: fpv.getBigUint64(0, true),
+    ztail: fqv.getBigUint64(0, true)
+  }
+}
+
+function step (address) {
+  const fn = just.sys.dlsym(handle, 'sqlite3_step')
+  if (!fn) throw new Error('Could not find symbol')
+  const cif = new ArrayBuffer(16)
+  const dv = new DataView(cif)
+  const status = ffi.ffiPrepCif(cif, ffi.FFI_TYPE_UINT32, [ffi.FFI_TYPE_POINTER])
+  if (status !== ffi.FFI_OK) {
+    throw new Error(`Bad Status ${status}`)
+  }
+  const fp = new DataView(new ArrayBuffer(8))
+  fp.setBigUint64(0, address, true)
+  dv.setBigUint64(0, fp.buffer.getAddress(), true)
   return ffi.ffiCall(cif, fn)
 }
 
+function finalize (address) {
+  const fn = just.sys.dlsym(handle, 'sqlite3_finalize')
+  if (!fn) throw new Error('Could not find symbol')
+  const cif = new ArrayBuffer(16)
+  const dv = new DataView(cif)
+  const status = ffi.ffiPrepCif(cif, ffi.FFI_TYPE_UINT32, [ffi.FFI_TYPE_POINTER])
+  if (status !== ffi.FFI_OK) {
+    throw new Error(`Bad Status ${status}`)
+  }
+  const fp = new DataView(new ArrayBuffer(8))
+  fp.setBigUint64(0, address, true)
+  dv.setBigUint64(0, fp.buffer.getAddress(), true)
+  return ffi.ffiCall(cif, fn)
+}
+
+function exec (address, sql) {
+  const fn = just.sys.dlsym(handle, 'sqlite3_exec')
+  if (!fn) throw new Error('Could not find symbol')
+  const params = [ffi.FFI_TYPE_POINTER, ffi.FFI_TYPE_POINTER, ffi.FFI_TYPE_POINTER, ffi.FFI_TYPE_POINTER, ffi.FFI_TYPE_POINTER]
+  const cif = new ArrayBuffer(8 * params.length)
+  const dv = new DataView(cif)
+  const status = ffi.ffiPrepCif(cif, ffi.FFI_TYPE_UINT32, params)
+  if (status !== ffi.FFI_OK) {
+    throw new Error(`Bad Status ${status}`)
+  }
+  dv.setBigUint64(0, address, true)
+  const buf = ArrayBuffer.fromString(`${sql}\0`)
+  const fp = new DataView(new ArrayBuffer(8))
+  fp.setBigUint64(0, buf.getAddress(), true)
+  dv.setBigUint64(8, fp.buffer.getAddress(), true)
+  const args = new ArrayBuffer(24)
+  dv.setBigUint64(16, args.getAddress(), true)
+  dv.setBigUint64(24, args.getAddress() + 8n, true)
+  dv.setBigUint64(32, args.getAddress() + 16n, true)
+  return ffi.ffiCall(cif, fn)
+}
+
+// const unsigned char *sqlite3_column_text(sqlite3_stmt*, int iCol);
+// int sqlite3_column_int(sqlite3_stmt*, int iCol);
+// sqlite3_int64 sqlite3_column_int64(sqlite3_stmt*, int iCol);
+// const void *sqlite3_column_blob(sqlite3_stmt*, int iCol);
+
+function column_text (address, index) {
+  const fn = just.sys.dlsym(handle, 'sqlite3_column_text')
+  if (!fn) throw new Error('Could not find symbol')
+  const cif = new ArrayBuffer(16)
+  const dv = new DataView(cif)
+  const status = ffi.ffiPrepCif(cif, ffi.FFI_TYPE_POINTER, [ffi.FFI_TYPE_POINTER, ffi.FFI_TYPE_UINT32])
+  if (status !== ffi.FFI_OK) {
+    throw new Error(`Bad Status ${status}`)
+  }
+  // sqlite3_stmt*
+  const fp = new DataView(new ArrayBuffer(8))
+  fp.setBigUint64(0, address, true)
+  dv.setBigUint64(0, fp.buffer.getAddress(), true)
+
+  // iCol
+  const av = new DataView(new ArrayBuffer(4))
+  av.setInt32(0, index, true)
+  dv.setBigUint64(8, av.buffer.getAddress(), true)
+
+  const ptr = ffi.ffiCall(cif, fn)
+  const len = strlen(ptr)
+  return just.sys.readMemory(ptr, ptr + BigInt(len))
+}
+
 let r = 0
-just.print(version())
-const db = open(':memory:')
+just.print(`version ${version()}`)
+const db = open('foo.willybang.bar')
 if (!db) throw new Error('Could not open db')
-r = prepare(db, 'SELECT 1 + 1;')
-just.print(r)
+let res
+
+try {
+  res = prepare(db, 'CREATE TABLE employee (Name varchar(20),Dept varchar(20),jobTitle varchar(20))')
+  just.print(`prepare ${res.status}`)
+  just.print(res.stmt)
+  just.print(res.ztail)
+  r = step(res.stmt)
+  just.print(`step ${r}`)
+  r = finalize(res.stmt)
+  just.print(`finalize ${r}`)
+  just.print('table created')
+} catch (err) {
+  just.print('creating table failed')
+}
+
+try {
+  res = prepare(db, "INSERT INTO employee(Name, Dept, jobTitle) VALUES('Barney Rubble','Sales','Neighbor')")
+  just.print(`prepare ${res.status}`)
+  just.print(res.stmt)
+  just.print(res.ztail)
+  r = step(res.stmt)
+  just.print(`step ${r}`)
+  r = finalize(res.stmt)
+  just.print(`finalize ${r}`)
+  //r = exec(db, 'COMMIT')
+  //just.print(`exec ${r}`)
+} catch (err) {
+  just.print('inserting record failed')
+}
+
+try {
+  res = prepare(db, 'SELECT * FROM employee')
+  r = step(res.stmt)
+  let rows = 0
+  while (r === constants.SQLITE_ROW) {
+    just.print(`step ${r}`)
+    const name = column_text(res.stmt, 0)
+    let str = name.readString()
+    just.print(`column_text ${str}`)
+    const dept = column_text(res.stmt, 1)
+    str = dept.readString()
+    just.print(`column_text ${str}`)
+    const title = column_text(res.stmt, 2)
+    str = title.readString()
+    just.print(`column_text ${str}`)
+    rows++
+    r = step(res.stmt)
+  }
+  r = finalize(res.stmt)
+  just.print(`finalize ${r}`)
+  just.print(`total rows ${rows}`)
+} catch (err) {
+  just.print('inserting record failed')
+}
+
 r = close(db)
-just.print(r)
+just.print(`close ${r}`)
