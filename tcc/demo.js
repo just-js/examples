@@ -1,7 +1,5 @@
-const { tcc } = just.library('tcc', '../../modules/tcc/tcc.so')
-const { ffi } = just.library('ffi', '../../modules/ffi/ffi.so')
-const { memory } = just.library('memory', '../../modules/memory/memory.so')
-const { dump } = require('@binary')
+const { tcc } = just.library('tcc')
+const { ffi } = just.library('ffi')
 const source = `
 #include <unistd.h>
 #include <stdio.h>

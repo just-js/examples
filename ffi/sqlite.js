@@ -1,5 +1,6 @@
-const { ffi } = just.library('ffi', '../../modules/ffi/ffi.so')
-const handle = just.sys.dlopen('../../../sqlite/build/.libs/libsqlite3.so')
+const { ffi } = just.library('ffi')
+const handle = just.sys.dlopen('libsqlite3.so')
+
 if (!handle) throw new Error('Clould not create handle')
 
 function strlen (ptr) {
@@ -298,3 +299,4 @@ try {
 
 r = close(db)
 just.print(`close ${r}`)
+just.print(just.memoryUsage().rss)
