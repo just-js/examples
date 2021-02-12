@@ -100,17 +100,6 @@ const constants = {
   SQLITE_DONE       : 101 // sqlite3_step() has finished executing
 }
 
-/*
-int sqlite3_prepare_v3(
-  sqlite3 *db,            // Database handle
-  const char *zSql,       // SQL statement, UTF-8 encoded
-  int nByte,              // Maximum length of zSql in bytes.
-  unsigned int prepFlags, // Zero or more SQLITE_PREPARE_ flags
-  sqlite3_stmt **ppStmt,  // OUT: Statement handle
-  const char **pzTail     // OUT: Pointer to unused portion of zSql
-);
-*/
-
 function prepare (db, sql) {
   const fn = just.sys.dlsym(handle, 'sqlite3_prepare_v3')
   if (!fn) throw new Error('Could not find symbol')
@@ -208,11 +197,6 @@ function exec (address, sql) {
   return ffi.ffiCall(cif, fn)
 }
 
-// const unsigned char *sqlite3_column_text(sqlite3_stmt*, int iCol);
-// int sqlite3_column_int(sqlite3_stmt*, int iCol);
-// sqlite3_int64 sqlite3_column_int64(sqlite3_stmt*, int iCol);
-// const void *sqlite3_column_blob(sqlite3_stmt*, int iCol);
-
 function column_text (address, index) {
   const fn = just.sys.dlsym(handle, 'sqlite3_column_text')
   if (!fn) throw new Error('Could not find symbol')
@@ -239,7 +223,7 @@ function column_text (address, index) {
 
 let r = 0
 just.print(`version ${version()}`)
-const db = open('foo.willybang.bar')
+const db = open('foo.db')
 if (!db) throw new Error('Could not open db')
 let res
 
@@ -266,8 +250,6 @@ try {
   just.print(`step ${r}`)
   r = finalize(res.stmt)
   just.print(`finalize ${r}`)
-  //r = exec(db, 'COMMIT')
-  //just.print(`exec ${r}`)
 } catch (err) {
   just.print('inserting record failed')
 }

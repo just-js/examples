@@ -121,7 +121,7 @@ const sqrt = wrap_sqrt()
 just.print(sqrt(9.0))
 
 const close = wrap_close()
-const fd = just.fs.open('test.js')
+const fd = just.fs.open('demo.js')
 just.print(fd)
 just.print(close(fd))
 

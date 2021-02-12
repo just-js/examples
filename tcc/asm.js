@@ -27,31 +27,7 @@ const libs = []
 const code = tcc.compile(source, opts, includes, libs)
 if (!code) throw new Error('Could not compile')
 tcc.relocate(code)
-/*
-function wrapWrite () {
-  const fn = tcc.get(code, 'just_write')
-  const params = [ffi.FFI_TYPE_UINT32, ffi.FFI_TYPE_POINTER, ffi.FFI_TYPE_UINT32]
-  const dv = new DataView(new ArrayBuffer(8 * params.length))
-  const cif = dv.buffer
-  const status = ffi.ffiPrepCif(cif, ffi.FFI_TYPE_UINT32, params)
-  if (status !== ffi.FFI_OK) {
-    throw new Error(`Bad Status ${status}`)
-  }
-  const fdv = new DataView(new ArrayBuffer(4))
-  dv.setBigUint64(0, fdv.buffer.getAddress(), true)
-  const bufv = new DataView(new ArrayBuffer(8))
-  dv.setBigUint64(8, bufv.buffer.getAddress(), true)
-  const sizev = new DataView(new ArrayBuffer(4))
-  dv.setBigUint64(16, sizev.buffer.getAddress(), true)
-  function write (fd, str, len = just.sys.utf8Length(str)) {
-    fdv.setUint32(0, fd, true)
-    bufv.setBigUint64(0, ArrayBuffer.fromString(str).getAddress(), true)
-    sizev.setUint32(0, len, true)
-    return ffi.ffiCall(cif, fn)
-  }
-  return write
-}
-*/
+
 function wrapWrite (buf, fd) {
   const fn = tcc.get(code, 'just_write')
   const params = [ffi.FFI_TYPE_UINT32, ffi.FFI_TYPE_POINTER, ffi.FFI_TYPE_UINT32]
@@ -136,7 +112,7 @@ function nativeWriteBuffer () {
 }
 
 function test (fn, runs = 10) {
-  just.print(`${AG}fn.name${AD}`)
+  just.print(`${AG}${fn.name}${AD}`)
   just.print(just.memoryUsage().rss)
   for (let i = 0; i < runs; i++) {
     fn()
@@ -144,19 +120,20 @@ function test (fn, runs = 10) {
   just.print(just.memoryUsage().rss)
 }
 
-test(ffiWriteString)
-test(nativeWriteString)
-test(ffiWriteBuffer)
-test(nativeWriteBuffer)
+// redirect stderr to /dev/null
+just.net.dup(just.fs.open('/dev/null', just.fs.O_RDWR), just.sys.STDERR_FILENO)
+const runs = parseInt(just.args[2] || '10')
+test(ffiWriteString, runs)
+test(nativeWriteString, runs)
+test(ffiWriteBuffer, runs)
+test(nativeWriteBuffer, runs)
 
 // do an article on this
 /*
-
 on the fly compiled assembly called using ffi within 10% of native
 test3 v test4
 590 v 630 = ~94%
 
 test for different string sizes
-test for different numbers of arguments
-
+test for different numbers and types of arguments
 */
