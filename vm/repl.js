@@ -1,29 +1,57 @@
-const main = just.builtin('just.js')
 
-function createContext () {
-  const ctx = new ArrayBuffer(8)
-  const contextJust = just.vm.createContext(ctx)
-  const start = Date.now()
-  contextJust.args = []
-  function execute (src, scriptName = 'just.js') {
-    return just.vm.runInContext(ctx, src, scriptName)
+const { createContext, compileAndRunInContext, enterContext, exitContext } = just.vm
+const { AM, AD } = require('@binary').ANSI
+
+function newContext (opts = {}) {
+  const ctx = new ArrayBuffer(0)
+  const just = createContext(ctx)
+  just.args = opts.args || []
+  if (!opts.builtin) delete just.builtin
+  if (!opts.load) delete just.load
+  if (!opts.sleep) delete just.sleep
+  if (!opts.chdir) delete just.chdir
+  const scriptName = opts.scriptName || 'just.js'
+  function execute (src) {
+    return compileAndRunInContext(ctx, src, scriptName)
   }
-  //just.vm.runInContext(ctx, main, 'just.js')
-  Object.assign(contextJust, just)
-  const time = Date.now() - start
-  return { just: contextJust, execute, time, ctx }
+  if (opts.main) compileAndRunInContext(ctx, opts.main, scriptName)
+  return { just, execute, ctx }
 }
 
-const context = createContext()
-context.just.foo = 'bar'
-context.just.doSomething = (b) => {
-  const u8 = new Uint8Array(b)
-  for (let i = 0; i < b.byteLength; i++) {
-    u8[i] = u8[i] + 1
-  }
-}
-const repl = require('repl').repl()
-repl.onCommand = command => {
-  return context.execute(command)
-}
+/*
+// run a full just.js runtime with args. same as running from shell
+const full = newContext({
+  main: just.builtin('just.js'),
+  load: true,
+  builtin: true,
+  args: ['just', '--freeze', 'eval', "require('repl').repl()"]
+})
 
+// create the simplest possible context and run a repl in current
+// context to evaluate code in the new context
+const context = newContext()
+require('repl').repl().onCommand = context.execute
+*/
+
+const full = newContext({
+  main: just.builtin('just.js'),
+  load: true,
+  builtin: true,
+  args: ['just', '--freeze', 'eval', '']
+})
+const mini = newContext()
+
+const dumpScript = `
+just.print(JSON.stringify(Object.getOwnPropertyNames(global), null, '  '))
+just.print(JSON.stringify(Object.getOwnPropertyNames(just), null, '  '))
+just.foo = 'bar'
+`
+
+just.print(`${AM}full${AD}`)
+full.execute(dumpScript)
+just.print(`${AM}mini${AD}`)
+mini.execute(dumpScript)
+
+enterContext(full)
+//just.print('hello')
+//exitContext(full)
