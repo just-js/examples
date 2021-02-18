@@ -1,8 +1,8 @@
 const { sys } = just.library('sys')
 const { readFileBytes } = require('fs')
 const { memory } = just.library('memory')
-const { fexecve, MFD_CLOEXEC, fork, waitpid } = sys
-const { memfdCreate } = memory
+const { fexecve, fork, waitpid } = sys
+const { memfdCreate, MFD_CLOEXEC } = memory
 const fd = memfdCreate('busybox', MFD_CLOEXEC)
 let buf = just.builtin('busybox', 1)
 if (!buf) {
