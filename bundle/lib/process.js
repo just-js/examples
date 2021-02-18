@@ -32,6 +32,7 @@ function launch (program, args, workDir = cwd(), buf = new ArrayBuffer(4096)) {
   const stderr = createPipe()
   // pass in the sides of the pipe to be used for STDIN, STDOUT and STDERR by child process
   const pid = spawn(program, workDir, args, stdin[READABLE], stdout[WRITABLE], stderr[WRITABLE])
+  // todo: throw error if we get a bad status? return bad status?
   // close the child sides of the pipes in this process
   close(stdin[READABLE])
   close(stdout[WRITABLE])
