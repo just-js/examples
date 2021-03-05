@@ -1,10 +1,10 @@
-just.thread = just.library('thread', 'thread.so').thread
+just.thread = just.library('thread').thread
 const { net, sys, loop } = just
 function threadMain () {
   const shared = just.buffer
   const u32 = new Uint32Array(shared)
   Atomics.add(u32, 0, 1)
-  //just.setInterval(() => {}, 1000)
+  just.setInterval(() => {}, 1000)
 }
 let source = threadMain.toString()
 source = source.slice(source.indexOf('{') + 1, source.lastIndexOf('}')).trim()

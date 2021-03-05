@@ -1,4 +1,4 @@
-const { thread } = just.library('thread', 'thread.so')
+const { thread } = just.library('thread')
 const { send, socketpair, AF_UNIX, SOCK_STREAM } = just.net
 const { errno, strerror } = just.sys
 
@@ -28,7 +28,7 @@ function threadMain () {
   const { net } = just.load('net')
   while (1) {
     Atomics.add(u32, 0, 1)
-    const bytes = net.recv(fd, buf)
+    const bytes = net.recv(fd, buf, 0, buf.byteLength)
     if (bytes > 0) {
       const message = sys.readString(buf, bytes)
       if (message === 'quit') break
@@ -55,6 +55,7 @@ const timer = just.setInterval(() => {
   const r = thread.tryJoin(tid, status)
   if (r === 0n) {
     // thread is complete
+    just.print(status)
     just.print(`thread complete ${status[1]}`)
     just.clearInterval(timer)
   }
