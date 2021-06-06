@@ -1,4 +1,4 @@
-const { rocksdb } = just.library('rocksdb.so', 'rocksdb')
+const { rocksdb } = just.library('rocksdb')
 const {
   open,
   get,

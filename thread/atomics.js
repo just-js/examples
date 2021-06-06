@@ -35,7 +35,7 @@ while (Atomics.load(u32, 0) < 10000) {
     const fd = events[off + 1]
     const event = events[off]
     if (event & loop.EPOLLIN) {
-      const rss = sys.memoryUsage(mem)[0]
+      const rss = Number(just.memoryUsage().rss)
       const diff = rss - last
       last = rss
       const now = Date.now()

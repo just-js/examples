@@ -1,4 +1,4 @@
-const { fetch } = require('fetch.js')
+const { fetch } = require('@fetch')
 
 async function main () {
   const [url, fileName] = just.args.slice(2)

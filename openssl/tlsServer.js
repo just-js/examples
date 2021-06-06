@@ -71,7 +71,8 @@ function onSocketEvent (fd, event) {
     } else {
       just.print('tls read error: connection has been aborted')
     }
-    net.shutdown(fd)
+    net.close(fd)
+    //net.shutdown(fd)
   }
 }
 

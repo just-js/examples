@@ -10,7 +10,7 @@ const {
 } = seccomp
 const { create, addRule, load, release, getName, getNumber } = seccomp
 
-//signal.reset()
+signal.reset()
 signal.sigaction(signal.SIGSYS, signum => {
   just.print('signalled')
 })
@@ -52,6 +52,10 @@ for (const syscall of syscalls) {
 
 r = load(ctx)
 just.print(`seccomp.load ${r}`)
+
+global.onExit = () => {
+  just.print('exit')
+}
 
 just.setInterval(() => {
   just.print('foo')
