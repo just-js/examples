@@ -4,26 +4,8 @@ const { tls } = just.library('tls', 'openssl.so')
 const { AF_INET, SOCK_STREAM, SOCK_NONBLOCK, SOL_SOCKET, IPPROTO_TCP, TCP_NODELAY, SO_KEEPALIVE, EAGAIN } = net
 const { EPOLLERR, EPOLLHUP, EPOLLIN, EPOLLOUT } = just.loop
 const { loop } = just.factory
-const { create, parse } = require('dns.js')
-const { createParser, HTTP_RESPONSE, HTTP_CHUNKED } = require('protocol.js')
-const { udp } = just.library('udp')
-
-function lookup (query = 'www.google.com', onRecord = () => {}, address = '8.8.8.8', port = 53, buf = new ArrayBuffer(65536)) {
-  const fd = net.socket(net.AF_INET, net.SOCK_DGRAM | net.SOCK_NONBLOCK, 0)
-  const { byteLength } = buf
-  net.bind(fd, address, port)
-  loop.add(fd, (fd, event) => {
-    const answer = []
-    const len = udp.recvmsg(fd, buf, answer, byteLength)
-    const [address, port] = answer
-    const message = { length: len, address, port, message: parse(buf, len) }
-    loop.remove(fd)
-    net.close(fd)
-    onRecord(message)
-  })
-  const len = create(query, buf, 1)
-  udp.sendmsg(fd, buf, address, port, len)
-}
+const { lookup } = require('@dns')
+const { createParser, HTTP_RESPONSE, HTTP_CHUNKED } = require('@http')
 
 function closeSocket (socket, err) {
   const { fd, buf, closed } = socket
@@ -60,7 +42,6 @@ function onSocketEvent (fd, event) {
       socket.parser.onResponses = count => {
         for (const res of socket.parser.get(count)) {
           socket.onResponse(res)
-          just.print(res.statusCode)
           if (res.statusCode === 200) {
             const contentLength = parseInt(res.headers['Content-Length'] || 0, 10)
             let total = 0
@@ -166,7 +147,7 @@ function parseUrl (url) {
   return { protocol, hostname, path }
 }
 
-function download (url) {
+function get (url) {
   const context = tls.clientContext(new ArrayBuffer(0))
   const { protocol, hostname, path } = parseUrl(url)
   const client = net.socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0)
@@ -186,10 +167,12 @@ function download (url) {
     close: err => closeSocket(socket, err)
   }
   sockets[client] = socket
-  lookup(hostname, record => {
-    const { message } = record
-    const { ip } = message.answer.filter(v => v.qtype === 1)[0]
-    const r = net.connect(client, `${ip[0]}.${ip[1]}.${ip[2]}.${ip[3]}`, 443)
+  lookup(hostname, (err, ip) => {
+    if (err) {
+      just.error(err.stack)
+      return
+    }
+    const r = net.connect(client, ip, 443)
     if (r < 0) {
       const errno = sys.errno()
       if (errno !== 115) throw new Error(`connect failed: (${errno}) ${sys.strerror(errno)}`)
@@ -199,9 +182,9 @@ function download (url) {
   return socket
 }
 
-function fetch (url, fileName) {
+function download (url, fileName) {
   return new Promise((resolve, reject) => {
-    const socket = download(url)
+    const socket = get(url)
     const { buf } = socket
     socket.onSecure = () => {
       socket.write(buf, buf.writeString(`GET ${socket.path} HTTP/1.1\r\nUser-Agent: curl/7.58.0\r\nAccept: */*\r\nHost: ${socket.hostname}\r\n\r\n`))
@@ -237,6 +220,31 @@ function fetch (url, fileName) {
         return
       }
       reject(new Error('Bad Status Code'), res)
+    }
+  })
+}
+
+function fetch (url) {
+  return new Promise((resolve, reject) => {
+    const socket = get(url)
+    const { buf } = socket
+    socket.onSecure = () => {
+      socket.write(buf, buf.writeString(`GET ${socket.path} HTTP/1.1\r\nUser-Agent: curl/7.58.0\r\nAccept: */*\r\nHost: ${socket.hostname}\r\n\r\n`))
+    }
+    socket.onResponse = res => {
+      const parts = []
+      res.size = 0
+      res.contentType = res.headers['Content-Type']
+      socket.onBody = bytes => {
+        parts.push(buf.readString(bytes, buf.offset))
+        res.size += bytes
+      }
+      socket.onComplete = err => {
+        if (err) return reject(err)
+        res.text = () => parts.join('')
+        res.json = () => JSON.parse(parts.join(''))
+        resolve(res)
+      }
     }
   })
 }

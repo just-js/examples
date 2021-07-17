@@ -62,14 +62,15 @@ function wrapWrite (buf, fd) {
   return { write, write2 }
 }
 
+const testStr = '0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\n'
+
 function ffiWriteString () {
   const { write } = wrapWrite()
   let i = 0
-  const str = 'hello\n'
-  const len = just.sys.utf8Length(str)
+  const len = just.sys.utf8Length(testStr)
   const fd = just.sys.STDERR_FILENO
   const start = Date.now()
-  while (write(fd, str, len) === 6) {
+  while (write(fd, testStr, len) === len) {
     if (i++ === 1000000) break
   }
   just.print(Date.now() - start)
@@ -77,35 +78,36 @@ function ffiWriteString () {
 
 function nativeWriteString () {
   const write = just.net.writeString
+  const len = just.sys.utf8Length(testStr)
   let i = 0
-  const str = 'hello\n'
   const fd = just.sys.STDERR_FILENO
   const start = Date.now()
-  while (write(fd, str) === 6) {
+  while (write(fd, testStr) === len) {
     if (i++ === 1000000) break
   }
   just.print(Date.now() - start)
 }
 
 function ffiWriteBuffer () {
-  const buf = ArrayBuffer.fromString('hello\n')
+  const buf = ArrayBuffer.fromString(testStr)
+  const len = buf.byteLength
   const { write2 } = wrapWrite(buf, just.sys.STDERR_FILENO)
   let i = 0
   const start = Date.now()
-  while (write2() === 6) {
+  while (write2() === len) {
     if (i++ === 1000000) break
   }
   just.print(Date.now() - start)
 }
 
 function nativeWriteBuffer () {
-  const write = () => just.net.write(fd, buf)
+  const write = () => just.net.write(fd, buf, len)
   let i = 0
-  const str = 'hello\n'
-  const buf = ArrayBuffer.fromString(str)
+  const buf = ArrayBuffer.fromString(testStr)
+  const len = buf.byteLength
   const fd = just.sys.STDERR_FILENO
   const start = Date.now()
-  while (write() === 6) {
+  while (write() === len) {
     if (i++ === 1000000) break
   }
   just.print(Date.now() - start)
@@ -123,10 +125,16 @@ function test (fn, runs = 10) {
 // redirect stderr to /dev/null
 just.net.dup(just.fs.open('/dev/null', just.fs.O_RDWR), just.sys.STDERR_FILENO)
 const runs = parseInt(just.args[2] || '10')
-test(ffiWriteString, runs)
-test(nativeWriteString, runs)
-test(ffiWriteBuffer, runs)
-test(nativeWriteBuffer, runs)
+
+function next () {
+  test(ffiWriteString, runs)
+  test(nativeWriteString, runs)
+  test(ffiWriteBuffer, runs)
+  test(nativeWriteBuffer, runs)
+  just.setTimeout(next, 100)
+}
+
+next()
 
 // do an article on this
 /*

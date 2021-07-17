@@ -20,37 +20,47 @@ function onSocketEvent (fd, event) {
   const socket = sockets[fd]
   const { buf, secured, handshake } = socket
   if (event & EPOLLERR || event & EPOLLHUP) {
+    just.print(`close ${fd}`)
     closeSocket(socket)
     return
   }
   if (!handshake) {
     let r
     if (!secured) {
+      just.print(`accept ${fd}`)
       r = tls.acceptSocket(fd, context, buf)
       socket.secured = true
     } else {
+      just.print(`handshake ${fd}`)
       r = tls.handshake(buf)
     }
     if (r === 1) {
       socket.handshake = true
       return
     }
+    just.print(`handshake fail ${r}`)
     const err = tls.error(buf, r)
+    just.print(`handshake fail ${err}`)
     if (err === tls.SSL_ERROR_WANT_WRITE) {
+      just.print(`set EPOLLOUT`)
       loop.update(fd, EPOLLOUT)
     } else if (err === tls.SSL_ERROR_WANT_READ) {
+      just.print(`set EPOLLIN`)
       loop.update(fd, EPOLLIN)
     } else {
-      just.print('socket handshake error')
+      just.print(`socket handshake error ${err}: ${tls.error(buf, err)}`)
       net.shutdown(fd)
     }
     return
   }
   if (event & EPOLLOUT) {
+    just.print(`EPOLLOUT ${fd}`)
     loop.update(fd, EPOLLIN)
   }
   if (event & EPOLLIN) {
+    just.print(`EPOLLIN ${fd}`)
     const bytes = tls.read(buf)
+    just.print(`bytes ${fd} ${bytes}`)
     if (bytes > 0) {
       tls.write(buf, buf.writeString('HTTP/1.1 200 OK \r\nContent-Length: 0\r\n\r\n'))
       return
@@ -62,14 +72,16 @@ function onSocketEvent (fd, event) {
         if (errno !== EAGAIN) {
           just.print(`tls read error: ${sys.errno()}: ${sys.strerror(sys.errno())}`)
         }
+      } else {
+        just.print(`tls read error: negative bytes:  ${tls.error(buf, err)}`)
       }
       return
     }
     const err = tls.error(buf, bytes)
     if (err === tls.SSL_ERROR_ZERO_RETURN) {
-      just.print('tls read error: ssl has been shut down')
+      just.print(`tls read error: ssl has been shut down:  ${tls.error(buf, err)}`)
     } else {
-      just.print('tls read error: connection has been aborted')
+      just.print(`tls read error: connection has been aborted: ${tls.error(buf, err)}`)
     }
     net.close(fd)
     //net.shutdown(fd)

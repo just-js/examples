@@ -38,7 +38,7 @@ function main (args) {
   }
   while (1) {
     // this is synchronous - no need for the event loop
-    const bytes = net.recv(fd, buf)
+    const bytes = net.recv(fd, buf, 0, buf.byteLength)
     if (bytes === 0) break
     if (bytes < 0) throw new SystemError('recv')
     // hack to ignore duplicates on lo until we have recvfrom: https://stackoverflow.com/questions/17194844/packetsocket-opened-on-loopback-device-receives-all-the-packets-twice-how-to-fi
