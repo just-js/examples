@@ -10,23 +10,30 @@ class BlockStore {
     this.counter = 0
   }
 
+  alloc (index, size) {
+    return just.sys.calloc(1, BigInt(size))
+  }
+
   create () {
     const { bucket = 1, bucketSize = 1 * giga, block = 4096 } = this.config
-    this.buckets = (new Array(bucket)).fill(0).map(() => just.sys.calloc(1, BigInt(bucketSize)))
+    this.buckets = (new Array(bucket)).fill(0).map((v, i) => this.alloc(i, bucketSize))
     this.bucketSlots = Math.floor(bucketSize / block)
     this.totalSlots = this.bucketSlots * bucket
     this.blockSize = block
     this.totalSize = bucketSize * bucket
     this.start = this.buckets.map(b => b.getAddress())
+    return this
   }
 
   destroy () {
     this.buckets = null
+    return this
   }
 
   lookup (i) {
     const { bucketSlots, blockSize, index } = this
     index.bucket = (i / bucketSlots) >> 0
+    if (index.bucket > (this.config.bucket - 1)) return null
     index.slot = (i % bucketSlots)
     index.start = index.slot * blockSize
     index.end = index.start + blockSize
@@ -36,19 +43,22 @@ class BlockStore {
 }
 
 class Peer {
-  constructor (sock, size = 16384) {
+  constructor (sock, blockSize = 1024, size = 16384) {
     this.buf = just.sys.calloc(1, size)
-    this.wbuf = just.sys.calloc(1, 8 + (256 * 4))
+    this.wbuf = just.sys.calloc(1, blockSize)
     this.wdv = new DataView(this.wbuf)
     this.dv = new DataView(this.buf)
     this.bufLen = this.buf.byteLength
     this.size = size
+    this.blockSize = blockSize
     this.off = 0
     this.queue = []
     this.sock = sock
     this.error = false
     this.header = {}
     this.pending = 0
+    this.onHeader = header => {}
+    this.onBlock = (header, off) => {}
   }
 
   writeHeader (version, slot, op, index, recordSize, extraKeys) {
@@ -73,8 +83,13 @@ class Peer {
     return { version, slot, op, index, flags, recordSize, extraKeys }
   }
 
-  send (index, op = 1, size = 1024, slot = 0) {
+  send (index, op = 1, size = this.blockSize, slot = 0) {
     return just.net.write(this.sock.fd, this.wbuf, this.writeHeader(1, slot, op, index, size, 0), 0)
+  }
+
+  json (o) {
+    this.wbuf.writeString(JSON.stringify(o))
+    return just.net.write(this.sock.fd, this.wbuf, this.blockSize, 0)
   }
 
   pull () {

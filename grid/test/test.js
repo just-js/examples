@@ -1,4 +1,4 @@
-const { createBlockStore } = require('./grid.js')
+const { createBlockStore } = require('../lib/grid.js')
 
 const stringify = (o, sp = '  ') => JSON.stringify(o, (k, v) => (typeof v === 'bigint') ? v.toString() : v, sp)
 function memoryUsage () {
