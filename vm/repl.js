@@ -52,6 +52,6 @@ full.execute(dumpScript)
 just.print(`${AM}mini${AD}`)
 mini.execute(dumpScript)
 
-enterContext(full)
+//enterContext(full)
 //just.print('hello')
 //exitContext(full)
