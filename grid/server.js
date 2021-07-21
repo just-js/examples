@@ -9,7 +9,7 @@ const stats = { send: 0, recv: 0 }
 
 const server = createServer()
 server.onConnect = sock => {
-  const peer = new Peer(sock, blockStore.blockSize)
+  const peer = new Peer(sock, config.block)
   const { buf } = peer
   const { buckets } = blockStore
   sock.onReadable = () => peer.pull()
@@ -19,12 +19,17 @@ server.onConnect = sock => {
     if (op === 1) {
       const block = blockStore.lookup(index)
       if (!block) {
-        peer.send(index, 3)
+        const r = peer.send(index, 3)
+        if (r <= 0) just.print(`send: ${r}`)
         return
       }
       const { bucket, start, end } = block
-      peer.send(index, 2)
-      just.net.write(sock.fd, buckets[bucket], end - start, start)
+      let r = peer.send(index, 2)
+      r = just.net.write(sock.fd, buckets[bucket], end - start, start)
+      if (r <= 0) {
+        const errno = just.sys.errno()
+        just.print(`(${errno}) ${just.sys.strerror(errno)}`)
+      }
       send++
     }
   }
@@ -33,14 +38,12 @@ server.onConnect = sock => {
     if (!block) return
     const { bucket, start, end } = block
     buckets[bucket].copyFrom(buf, start, end - start, off)
+    const r = peer.send(header.index, 1)
+    if (r <= 0) just.print(`send: ${r}`)
   }
 }
 
 const blockStore = createBlockStore(config)
-blockStore.alloc = (index, size) => {
-  just.print(`allocate ${size} for ${index}`)
-  return new ArrayBuffer(size)
-}
 blockStore.create()
 server.bind('grid.sock')
 server.listen()

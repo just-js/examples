@@ -97,6 +97,7 @@ function createClient () {
   const socket = { fd: 0, onReadable: () => {}, onWritable: () => {} }
 
   socket.connect = path => {
+    socket.closing = false
     socket.fd = net.socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0)
     if (socket.fd <= 0) return socket.fd
     const flags = sys.fcntl(socket.fd, sys.F_GETFL, 0) | O_NONBLOCK

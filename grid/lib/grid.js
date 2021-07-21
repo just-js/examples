@@ -11,16 +11,18 @@ class BlockStore {
   }
 
   alloc (index, size) {
+    just.print(size)
+    just.print(BigInt(size))
     return just.sys.calloc(1, BigInt(size))
   }
 
   create () {
-    const { bucket = 1, bucketSize = 1 * giga, block = 4096 } = this.config
-    this.buckets = (new Array(bucket)).fill(0).map((v, i) => this.alloc(i, bucketSize))
-    this.bucketSlots = Math.floor(bucketSize / block)
+    const { bucket = 1, bucketSize = 1, block = 4096 } = this.config
+    this.buckets = (new Array(bucket)).fill(0).map((v, i) => this.alloc(i, bucketSize * giga))
+    this.bucketSlots = Math.floor((bucketSize * giga) / block)
     this.totalSlots = this.bucketSlots * bucket
     this.blockSize = block
-    this.totalSize = bucketSize * bucket
+    this.totalSize = (bucketSize * giga) * bucket
     this.start = this.buckets.map(b => b.getAddress())
     return this
   }
@@ -43,7 +45,7 @@ class BlockStore {
 }
 
 class Peer {
-  constructor (sock, blockSize = 1024, size = 16384) {
+  constructor (sock, blockSize = 1024, size = blockSize) {
     this.buf = just.sys.calloc(1, size)
     this.wbuf = just.sys.calloc(1, blockSize)
     this.wdv = new DataView(this.wbuf)
@@ -105,7 +107,12 @@ class Peer {
           this.off += this.pending
           this.pending = 0
         } else {
-          just.print('uhoh')
+          this.pending -= bytes
+          this.off += bytes
+          bytes = 0
+          just.print(`one: bytes ${bytes} off ${this.off} pending ${this.pending} available ${available}`)
+          bytes = just.net.read(this.sock.fd, this.buf, this.off, this.bufLen - this.off)
+          continue
         }
       }
       while (bytes >= headerLength) {
@@ -115,10 +122,13 @@ class Peer {
         this.onHeader(header)
         if (header.op === 2) {
           if (header.recordSize > bytes) {
-            this.off = 0
+            this.off += (bytes - headerLength)
             this.pending = header.recordSize - bytes
             this.header = header
-            bytes = 0
+            just.print(`two: bytes ${bytes} off ${this.off} pending ${this.pending} available ${available}`)
+            bytes = just.net.read(this.sock.fd, this.buf, this.off, this.bufLen - this.off)
+            just.print(bytes)
+            continue
           } else {
             this.onBlock(header, this.off)
             this.off += header.recordSize
@@ -141,9 +151,9 @@ class Peer {
     if (bytes < 0) {
       const errno = just.sys.errno()
       if (errno === just.net.EAGAIN) {
-        this.error = { errno, message: just.sys.strerror(errno) }
         return true
       }
+      this.error = { errno, message: just.sys.strerror(errno) }
       return false
     }
     return true
