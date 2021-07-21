@@ -45,6 +45,12 @@ function createServer () {
     socket.close = () => closeSocket(socket)
     socket.pause = () => loop.update(socket.fd, readableWritableMask)
     socket.resume = () => loop.update(socket.fd, readableMask)
+    socket.read = (buf, off, bytes) => {
+      return net.read(socket.fd, buf, off, bytes)
+    }
+    socket.write = (buf, bytes, off) => {
+      return net.write(socket.fd, buf, bytes, off)
+    }
     server.onConnect(socket)
   }
 
@@ -108,7 +114,15 @@ function createClient () {
 
   socket.pause = () => loop.update(socket.fd, readableWritableMask)
   socket.resume = () => loop.update(socket.fd, readableMask)
-
+  socket.read = (buf, off, bytes) => {
+    return net.read(socket.fd, buf, off, bytes)
+  }
+  socket.isEmpty = () => {
+    return (sys.errno() === net.EAGAIN)
+  }
+  socket.write = (buf, bytes, off) => {
+    return net.write(socket.fd, buf, bytes, off)
+  }
   socket.close = () => closeSocket()
 
   return socket

@@ -1,7 +1,38 @@
+const { sys } = just
+
 const mega = 1024 * 1024
 const giga = mega * 1024
 
 const headerLength = 8
+
+class Bitmap {
+  constructor (size) {
+    const bitmapSize = Math.ceil(size / 8)
+    const buf = new ArrayBuffer(bitmapSize)
+    this.bytes = new Uint8Array(buf)
+  }
+
+  set (id) {
+    const { bytes } = this
+    const byte = Math.floor(id / 8)
+    const bit = id % 8
+    bytes[byte] = bytes[byte] | (1 << bit)
+  }
+
+  unset (id) {
+    const { bytes } = this
+    const byte = Math.floor(id / 8)
+    const bit = id % 8
+    bytes[byte] = bytes[byte] & ~(1 << bit)
+  }
+
+  test (id) {
+    const { bytes } = this
+    const byte = Math.floor(id / 8)
+    const bit = id % 8
+    return bytes[byte] & (1 << bit)
+  }
+}
 
 class BlockStore {
   constructor (config) {
@@ -11,7 +42,7 @@ class BlockStore {
   }
 
   alloc (index, size) {
-    return just.sys.calloc(1, BigInt(size))
+    return sys.calloc(1, BigInt(size))
   }
 
   create () {
@@ -22,12 +53,25 @@ class BlockStore {
     this.blockSize = block
     this.totalSize = (bucketSize * giga) * bucket
     this.start = this.buckets.map(b => b.getAddress())
+    this.bitmap = new Bitmap(this.totalSlots)
     return this
   }
 
   destroy () {
     this.buckets = null
     return this
+  }
+
+  set (i) {
+    return this.bitmap.set(i)
+  }
+
+  clear (i) {
+    return this.bitmap.unset(i)
+  }
+
+  exists (i) {
+    return this.bitmap.test(i)
   }
 
   lookup (i) {
@@ -58,9 +102,9 @@ class Peer {
   }
 
   alloc () {
-    this.buf = just.sys.calloc(1, this.size)
+    this.buf = sys.calloc(1, this.size)
     if (!this.buf) return
-    this.wbuf = just.sys.calloc(1, this.blockSize)
+    this.wbuf = sys.calloc(1, this.blockSize)
     if (!this.wbuf) return
     this.wdv = new DataView(this.wbuf)
     this.dv = new DataView(this.buf)
@@ -90,12 +134,12 @@ class Peer {
   }
 
   send (index, op = 1, size = this.blockSize, slot = 0) {
-    return just.net.write(this.sock.fd, this.wbuf, this.writeHeader(1, slot, op, index, size, 0), 0)
+    return this.sock.write(this.wbuf, this.writeHeader(1, slot, op, index, size, 0), 0)
   }
 
   json (o) {
     this.wbuf.writeString(JSON.stringify(o))
-    return just.net.write(this.sock.fd, this.wbuf, this.blockSize, 0)
+    return this.sock.write(this.wbuf, this.blockSize, 0)
   }
 
   consume (bytes) {
@@ -132,27 +176,24 @@ class Peer {
   }
 
   pull () {
+    const { sock } = this
     this.error = 0
     const available = this.bufLen - this.off
     if (available <= 0) {
       just.error(`No Space Left in Buffer len ${this.bufLen} off ${this.off}`)
+      sock.pause()
       return false
     }
-    const wanted = this.bufLen - this.off
-    const bytes = just.net.read(this.sock.fd, this.buf, this.off, wanted)
+    const bytes = sock.read(this.buf, this.off, available)
     if (bytes > 0) {
       return this.consume(bytes)
     }
     if (bytes === 0) {
-      just.net.close(this.sock.fd)
+      sock.close()
       return false
     }
-    this.error = just.sys.errno()
-    if (this.error === just.net.EAGAIN) {
-      this.error = 0
-      return true
-    }
-    just.net.close(this.sock.fd)
+    if (this.sock.isEmpty()) return true
+    sock.close()
     return false
   }
 }

@@ -14,17 +14,21 @@ function newPeer () {
   const peer = createPeer(sock, config.block).alloc()
   sock.onReadable = () => peer.pull()
   sock.onWritable = () => sock.resume()
-  peer.onBlock = () => {
-    recv++
+  peer.onHeader = header => {
+    hrecv++
     const r = peer.send(random())
     if (r <= 0) just.error((new just.SystemError('send')).stack)
+    hsend++
   }
+  peer.onBlock = () => recv++
   sock.connect('grid.sock')
   const r = peer.send(random())
   if (r <= 0) just.error((new just.SystemError('send')).stack)
 }
 
 let recv = 0
+let hrecv = 0
+let hsend = 0
 let peers = 10
 while (peers--) newPeer()
 
@@ -34,6 +38,6 @@ just.setInterval(() => {
   const { user, system } = just.cpuUsage()
   const { rss } = just.memoryUsage()
   const perf = `mem ${rss} cpu (${user.toFixed(2)}/${system.toFixed(2)}) ${(user + system).toFixed(2)}`
-  just.print(`recv ${recv} bw ${bw} MByte ${bwb} Mbit ${perf}`)
-  recv = 0
+  just.print(`block R ${recv} (${bw} MB ${bwb} Mb) head S ${hsend} R ${hrecv} ${perf}`)
+  recv = hsend = hrecv = 0
 }, 1000)

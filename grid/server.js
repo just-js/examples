@@ -14,16 +14,19 @@ server.onConnect = sock => {
   sock.onWritable = () => sock.resume()
   peer.onHeader = () => {
     const { op, index } = peer.header
-    if (op === 1) {
-      const block = blockStore.lookup(index)
-      if (!block) {
+    hrecv++
+    if (op === 1) { // GET
+      if (!blockStore.exists(index)) {
         const r = peer.send(index, 3)
         if (r <= 0) just.error((new just.SystemError('send')).stack)
+        hsend++
         return
       }
+      const block = blockStore.lookup(index)
       const { bucket, start, end } = block
       let r = peer.send(index, 2)
       if (r <= 0) just.error((new just.SystemError('send')).stack)
+      hsend++
       r = just.net.write(sock.fd, buckets[bucket], end - start, start)
       if (r <= 0) just.error((new just.SystemError('write')).stack)
       send++
@@ -31,16 +34,19 @@ server.onConnect = sock => {
   }
   peer.onBlock = () => {
     const { header, off } = peer
-    const block = blockStore.lookup(header.index)
+    const { index } = header
+    const block = blockStore.lookup(index)
     if (!block) {
       just.print('block not found')
       return
     }
     const { bucket, start, end } = block
     buckets[bucket].copyFrom(buf, start, end - start, off)
+    blockStore.set(index)
     recv++
-    const r = peer.send(header.index, 1)
+    const r = peer.send(index, 1)
     if (r <= 0) just.error((new just.SystemError('send')).stack)
+    hsend++
   }
 }
 
@@ -51,6 +57,8 @@ server.listen()
 just.print(stringify(blockStore))
 let send = 0
 let recv = 0
+let hsend = 0
+let hrecv = 0
 just.setInterval(() => {
   const bw = Math.floor((send * config.block) / (1024 * 1024))
   const bwb = bw * 8
@@ -59,6 +67,6 @@ just.setInterval(() => {
   const { user, system } = just.cpuUsage()
   const { rss } = just.memoryUsage()
   const perf = `mem ${rss} cpu (${user.toFixed(2)}/${system.toFixed(2)}) ${(user + system).toFixed(2)}`
-  just.print(`send ${send} (${bw} MB ${bwb} Mb) recv ${recv} (${bwr} MB ${bwrb} Mb) ${perf})`)
-  send = recv = 0
+  just.print(`block S ${send} (${bw} MB ${bwb} Mb) R ${recv} (${bwr} MB ${bwrb} Mb) head S ${hsend} R ${hrecv} ${perf}`)
+  send = recv = hsend = hrecv = 0
 }, 1000)
