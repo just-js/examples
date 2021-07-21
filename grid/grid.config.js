@@ -1,7 +1,7 @@
 const config = {
-  bucket: 1,
+  bucket: 4,
   block: 16384,
-  bucketSize: 8
+  bucketSize: 2
 }
 
 module.exports = config

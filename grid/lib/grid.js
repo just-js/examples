@@ -11,8 +11,6 @@ class BlockStore {
   }
 
   alloc (index, size) {
-    just.print(size)
-    just.print(BigInt(size))
     return just.sys.calloc(1, BigInt(size))
   }
 
@@ -45,22 +43,28 @@ class BlockStore {
 }
 
 class Peer {
-  constructor (sock, blockSize = 1024, size = blockSize) {
-    this.buf = just.sys.calloc(1, size)
-    this.wbuf = just.sys.calloc(1, blockSize)
-    this.wdv = new DataView(this.wbuf)
-    this.dv = new DataView(this.buf)
-    this.bufLen = this.buf.byteLength
+  constructor (sock, blockSize = 1024, size = blockSize * 2) {
     this.size = size
     this.blockSize = blockSize
-    this.off = 0
-    this.queue = []
     this.sock = sock
-    this.error = false
+    this.bufLen = size
+    this.error = 0
+    this.onHeader = () => {}
+    this.onBlock = () => {}
+    this.wantHeader = true
+    this.off = 0
+    this.start = 0
     this.header = {}
-    this.pending = 0
-    this.onHeader = header => {}
-    this.onBlock = (header, off) => {}
+  }
+
+  alloc () {
+    this.buf = just.sys.calloc(1, this.size)
+    if (!this.buf) return
+    this.wbuf = just.sys.calloc(1, this.blockSize)
+    if (!this.wbuf) return
+    this.wdv = new DataView(this.wbuf)
+    this.dv = new DataView(this.buf)
+    return this
   }
 
   writeHeader (version, slot, op, index, recordSize, extraKeys) {
@@ -74,12 +78,12 @@ class Peer {
   }
 
   readHeader () {
-    const { dv, off } = this
-    const version = dv.getUint8(off)
-    const slot = dv.getUint8(off + 1)
-    const op = dv.getUint8(off + 2)
-    const flags = dv.getUint8(off + 3)
-    const index = dv.getUint32(off + 4)
+    const { dv, start } = this
+    const version = dv.getUint8(start)
+    const slot = dv.getUint8(start + 1)
+    const op = dv.getUint8(start + 2)
+    const flags = dv.getUint8(start + 3)
+    const index = dv.getUint32(start + 4)
     const recordSize = Math.pow(2, (flags & 0xff) + 8)
     const extraKeys = flags >> 4
     return { version, slot, op, index, flags, recordSize, extraKeys }
@@ -94,70 +98,66 @@ class Peer {
     return just.net.write(this.sock.fd, this.wbuf, this.blockSize, 0)
   }
 
-  pull () {
-    this.error = false
-    const available = this.bufLen - this.off
-    if (available <= 0) return false
-    let bytes = just.net.read(this.sock.fd, this.buf, this.off, this.bufLen - this.off)
-    while (bytes > 0) {
-      if (this.pending > 0) {
-        if (bytes >= this.pending) {
-          this.onBlock(this.header, this.off)
-          bytes -= this.pending
-          this.off += this.pending
-          this.pending = 0
+  consume (bytes) {
+    const { blockSize } = this
+    while (bytes) {
+      if (this.wantHeader) {
+        const size = this.off - this.start
+        if (size + bytes >= headerLength) {
+          this.header = this.readHeader()
+          this.onHeader()
+          this.off += headerLength
+          this.start = this.off
+          if (this.header.op === 2) this.wantHeader = false
+          bytes -= headerLength
         } else {
-          this.pending -= bytes
           this.off += bytes
           bytes = 0
-          just.print(`one: bytes ${bytes} off ${this.off} pending ${this.pending} available ${available}`)
-          bytes = just.net.read(this.sock.fd, this.buf, this.off, this.bufLen - this.off)
-          continue
         }
-      }
-      while (bytes >= headerLength) {
-        const header = this.readHeader()
-        this.off += headerLength
-        bytes -= headerLength
-        this.onHeader(header)
-        if (header.op === 2) {
-          if (header.recordSize > bytes) {
-            this.off += (bytes - headerLength)
-            this.pending = header.recordSize - bytes
-            this.header = header
-            just.print(`two: bytes ${bytes} off ${this.off} pending ${this.pending} available ${available}`)
-            bytes = just.net.read(this.sock.fd, this.buf, this.off, this.bufLen - this.off)
-            just.print(bytes)
-            continue
-          } else {
-            this.onBlock(header, this.off)
-            this.off += header.recordSize
-            bytes -= header.recordSize
-            this.pending = 0
-          }
-        }
-      }
-      if (bytes > 0) {
-        just.print('extra bytes')
-        this.off = 0
       } else {
-        this.off = 0
+        const size = this.off - this.start
+        if (size + bytes >= blockSize) {
+          this.onBlock()
+          this.off += blockSize
+          this.start = this.off
+          this.wantHeader = true
+          bytes -= blockSize
+        } else {
+          this.off += bytes
+          bytes = 0
+        }
       }
-      bytes = just.net.read(this.sock.fd, this.buf, this.off, this.bufLen - this.off)
+    }
+    if (this.start === this.off) this.off = this.start = 0
+  }
+
+  pull () {
+    this.error = 0
+    const available = this.bufLen - this.off
+    if (available <= 0) {
+      just.error(`No Space Left in Buffer len ${this.bufLen} off ${this.off}`)
+      return false
+    }
+    const wanted = this.bufLen - this.off
+    const bytes = just.net.read(this.sock.fd, this.buf, this.off, wanted)
+    if (bytes > 0) {
+      return this.consume(bytes)
     }
     if (bytes === 0) {
+      just.net.close(this.sock.fd)
       return false
     }
-    if (bytes < 0) {
-      const errno = just.sys.errno()
-      if (errno === just.net.EAGAIN) {
-        return true
-      }
-      this.error = { errno, message: just.sys.strerror(errno) }
-      return false
+    this.error = just.sys.errno()
+    if (this.error === just.net.EAGAIN) {
+      this.error = 0
+      return true
     }
-    return true
+    just.net.close(this.sock.fd)
+    return false
   }
 }
 
-module.exports = { createBlockStore: config => new BlockStore(config), Peer }
+module.exports = {
+  createBlockStore: (...args) => new BlockStore(...args),
+  createPeer: (...args) => new Peer(...args)
+}

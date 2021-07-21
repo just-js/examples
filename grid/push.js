@@ -1,4 +1,4 @@
-const { Peer } = require('./lib/grid.js')
+const { createPeer } = require('./lib/grid.js')
 const { createClient } = require('./lib/unix.js')
 
 const config = require('grid.config.js')
@@ -9,29 +9,33 @@ const random = () => {
   return Math.floor(Math.random() * max)
 }
 
-function createPeer () {
+function newPeer () {
   const sock = createClient()
-  const peer = new Peer(sock, config.block)
+  const peer = createPeer(sock, config.block).alloc()
   sock.onReadable = () => peer.pull()
   sock.onWritable = () => sock.resume()
   peer.onHeader = header => {
     ack++
     const index = random()
-    peer.send(index, 2)
-    peer.json({ index })
+    let r = peer.send(index, 2)
+    if (r <= 0) just.error((new just.SystemError('send')).stack)
+    r = peer.json({ index })
+    if (r <= 0) just.error((new just.SystemError('json')).stack)
     send++
   }
   sock.connect('grid.sock')
   const index = random()
-  peer.send(index, 2)
-  peer.json({ index })
+  let r = peer.send(index, 2)
+  if (r <= 0) just.error((new just.SystemError('send')).stack)
+  r = peer.json({ index })
+  if (r <= 0) just.error((new just.SystemError('json')).stack)
   send++
 }
 
 let send = 0
 let ack = 0
 let peers = 10
-while (peers--) createPeer()
+while (peers--) newPeer()
 
 just.setInterval(() => {
   const bw = Math.floor((send * config.block) / (1024 * 1024))
