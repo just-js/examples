@@ -16,6 +16,11 @@ const constants = {
 
 const { headerSize, messages, version } = constants
 
+function translate (type, category = 'messages') {
+  if (category !== 'messages') return ''
+  return Object.keys(constants.messages)[type - 1]
+}
+
 class Bitmap {
   constructor (size) {
     const bitmapSize = Math.ceil(size / 8)
@@ -270,5 +275,6 @@ class Peer {
 module.exports = Object.assign({
   createBlockStore: (...args) => new BlockStore(...args),
   createBitmap: (...args) => new Bitmap(...args),
-  createPeer: (...args) => new Peer(...args)
+  createPeer: (...args) => new Peer(...args),
+  translate
 }, constants)

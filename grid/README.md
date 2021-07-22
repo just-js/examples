@@ -51,3 +51,19 @@ todo
   - content negotiation
   - http caching
 - put it up on glitch
+
+
+________________
+|              |
+|              |
+|              |
+|              |
+|              |
+________________
+
+
+we can easily script this and have a set of commands that are parsed and executed in sequence
+
+
+https://en.wikipedia.org/wiki/Box-drawing_character
+
