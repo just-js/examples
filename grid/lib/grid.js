@@ -171,47 +171,63 @@ class Peer {
     const len = this.writeHeader(version, op, index, size)
     const r = this.sock.write(this.hbuf, len, 0)
     if (r <= 0) {
+      if (this.sock.isEmpty) {
+        this.sock.pause()
+        return 0
+      }
       just.error((new just.SystemError('write')).stack)
-      return false
+      return r
     }
-    return true
+    return r
   }
 
   buffer (index, buf, len = buf.byteLength, off = 0) {
-    if (!this.message(index, messages.PUT, len)) return false
-    if (len === 0) return true
+    if (!this.message(index, messages.PUT, len)) return -1
+    if (len === 0) return 0
     const r = this.sock.write(buf, len, off)
     if (r <= 0) {
+      if (this.sock.isEmpty) {
+        this.sock.pause()
+        return 0
+      }
       just.error((new just.SystemError('write')).stack)
-      return false
+      return r
     }
-    return true
+    return r
   }
 
   text (index, text) {
     const { wbuf } = this
     const len = wbuf.writeString(text)
-    if (!this.message(index, messages.PUT, len)) return false
-    if (len === 0) return true
+    if (!this.message(index, messages.PUT, len)) return -1
+    if (len === 0) return 0
     const r = this.sock.write(wbuf, len, 0)
     if (r <= 0) {
+      if (this.sock.isEmpty) {
+        this.sock.pause()
+        return 0
+      }
       just.error((new just.SystemError('write')).stack)
-      return false
+      return r
     }
-    return true
+    return r
   }
 
   json (index, obj) {
     const { wbuf } = this
     const len = wbuf.writeString(JSON.stringify(obj))
-    if (!this.message(index, messages.PUT, len)) return false
-    if (len === 0) return true
+    if (!this.message(index, messages.PUT, len)) return -1
+    if (len === 0) return 0
     const r = this.sock.write(wbuf, len, 0)
     if (r <= 0) {
+      if (this.sock.isEmpty) {
+        this.sock.pause()
+        return 0
+      }
       just.error((new just.SystemError('write')).stack)
-      return false
+      return r
     }
-    return true
+    return r
   }
 
   readBlock () {
@@ -227,7 +243,9 @@ class Peer {
           this.onHeader()
           this.start += headerSize
           this.off = this.start
-          if (this.header.op === messages.PUT) this.wantHeader = false
+          if (this.header.op === messages.PUT) {
+            this.wantHeader = false
+          }
           bytes -= (headerSize - size)
         } else {
           this.off += bytes

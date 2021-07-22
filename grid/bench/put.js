@@ -9,20 +9,22 @@ const random = () => {
   return Math.floor(Math.random() * max)
 }
 
+const payload = '0'.repeat(config.block - 20)
+
 function newPeer () {
   const sock = createClient()
   const peer = createPeer(sock, config.block).alloc()
   peer.onHeader = header => {
     hrecv++
     const index = random()
-    peer.json(index, { index })
-    send++
+    const bytes = peer.text(index, `${index.toString().padEnd(17, ' ')} : ${payload}`)
+    if (bytes > 0) send += bytes
     hsend++
   }
   sock.connect('../grid.sock')
   const index = random()
-  peer.json(index, { index })
-  send++
+  const bytes = peer.text(index, `${index.toString().padEnd(17, ' ')} : ${payload}`)
+  if (bytes > 0) send += bytes
   hsend++
 }
 
@@ -33,7 +35,7 @@ let peers = 10
 while (peers--) newPeer()
 
 just.setInterval(() => {
-  const bw = Math.floor((send * config.block) / (1024 * 1024))
+  const bw = Math.floor(send / (1024 * 1024))
   const bwb = bw * 8
   const { user, system } = just.cpuUsage()
   const { rss } = just.memoryUsage()

@@ -1,5 +1,5 @@
-const { createClient } = require('../lib/unix.js')
 const { createPeer } = require('../lib/grid.js')
+const { createClient } = require('../lib/unix.js')
 
 const config = require('../grid.config.js')
 
@@ -12,31 +12,32 @@ const random = () => {
 function newPeer () {
   const sock = createClient()
   const peer = createPeer(sock, config.block).alloc()
-  peer.onHeader = () => {
+  peer.onHeader = header => {
     hrecv++
-    peer.get(random())
+    const index = random()
+    const bytes = peer.text(index, '')
+    if (bytes > 0) send += bytes
     hsend++
   }
-  peer.onBlock = () => {
-    recv += peer.header.size
-  }
   sock.connect('../grid.sock')
-  peer.get(random())
+  const index = random()
+  const bytes = peer.text(index, '')
+  if (bytes > 0) send += bytes
   hsend++
 }
 
-let recv = 0
+let send = 0
 let hrecv = 0
 let hsend = 0
 let peers = 10
 while (peers--) newPeer()
 
 just.setInterval(() => {
-  const bw = Math.floor(recv / (1024 * 1024))
+  const bw = Math.floor(send / (1024 * 1024))
   const bwb = bw * 8
   const { user, system } = just.cpuUsage()
   const { rss } = just.memoryUsage()
   const perf = `mem ${rss} cpu (${user.toFixed(2)}/${system.toFixed(2)}) ${(user + system).toFixed(2)}`
-  just.print(`block R ${recv} (${bw} MB ${bwb} Mb) head S ${hsend} R ${hrecv} ${perf}`)
-  recv = hsend = hrecv = 0
+  just.print(`block S ${send} (${bw} MB ${bwb} Mb) head S ${hsend} R ${hrecv} ${perf}`)
+  send = hsend = hrecv = 0
 }, 1000)

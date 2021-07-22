@@ -37,6 +37,7 @@ OK-API
 this is an ok api whose name is the same as a pretty cool animal
 
 todo
+- 0 size on header only messages, or include header size in total size
 - allow selecting slice of the block - off, size
 - namespacing for having separate grids per user etc. - private grids
 - permissioning

@@ -4,7 +4,7 @@ const { createServer } = require('./lib/unix.js')
 function onConnect (sock) {
   const peer = createPeer(sock, config.block).alloc()
   peer.onHeader = () => {
-    const { op, index } = peer.header
+    const { op, index, size } = peer.header
     if (op === messages.GET) {
       const block = blockStore.get(index)
       if (!block) {
@@ -13,7 +13,9 @@ function onConnect (sock) {
       }
       const { bucket, start, size } = block
       peer.buffer(index, blockStore.buckets[bucket], size, start)
+      return
     }
+    if (size === 0) peer.message(index, messages.ACK)
   }
   peer.onBlock = () => {
     const { index, size } = peer.header

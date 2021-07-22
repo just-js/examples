@@ -1,6 +1,6 @@
 const config = {
-  bucket: 8,
-  block: 64 * 1024,
+  bucket: 1,
+  block: 512,
   bucketSize: 1
 }
 
