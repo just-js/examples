@@ -12,7 +12,6 @@ function onConnect (sock) {
         return
       }
       const { bucket, start, size } = block
-      just.print(JSON.stringify({ bucket, start, size }))
       peer.buffer(index, blockStore.buckets[bucket], size, start)
     }
   }
