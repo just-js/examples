@@ -79,6 +79,10 @@ class BlockStore {
     const block = this.lookup(i)
     const { bucket, start, index } = block
     this.sizes[index] = len
+    if (len === 0) {
+      this.bitmap.unset(i)
+      return true
+    }
     this.buckets[bucket].copyFrom(buf, start, len, off)
     this.bitmap.set(i)
     return true
@@ -151,6 +155,10 @@ class Peer {
     return { version, op, index, size }
   }
 
+  get (i) {
+    return this.message(i)
+  }
+
   message (index, op = messages.GET, size = headerSize) {
     const len = this.writeHeader(version, op, index, size)
     const r = this.sock.write(this.hbuf, len, 0)
@@ -161,7 +169,9 @@ class Peer {
     return true
   }
 
-  buffer (buf, len, off = 0) {
+  buffer (index, buf, len = buf.byteLength, off = 0) {
+    if (!this.message(index, messages.PUT, len)) return false
+    if (len === 0) return true
     const r = this.sock.write(buf, len, off)
     if (r <= 0) {
       just.error((new just.SystemError('write')).stack)
@@ -170,16 +180,34 @@ class Peer {
     return true
   }
 
-  json (index, o) {
+  text (index, text) {
     const { wbuf } = this
-    const len = wbuf.writeString(JSON.stringify(o))
+    const len = wbuf.writeString(text)
     if (!this.message(index, messages.PUT, len)) return false
+    if (len === 0) return true
     const r = this.sock.write(wbuf, len, 0)
     if (r <= 0) {
       just.error((new just.SystemError('write')).stack)
       return false
     }
     return true
+  }
+
+  json (index, obj) {
+    const { wbuf } = this
+    const len = wbuf.writeString(JSON.stringify(obj))
+    if (!this.message(index, messages.PUT, len)) return false
+    if (len === 0) return true
+    const r = this.sock.write(wbuf, len, 0)
+    if (r <= 0) {
+      just.error((new just.SystemError('write')).stack)
+      return false
+    }
+    return true
+  }
+
+  readBlock () {
+    return new Uint8Array(this.buf, this.start, this.header.size)
   }
 
   consume (bytes) {

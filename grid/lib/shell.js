@@ -12,9 +12,10 @@ function createContext (api, globalName, script) {
 }
 
 function createShell (api = {}, name = 'just', script = 'just.js') {
-  const repl = require('repl').repl()
-  repl.onCommand = createContext(api, name, script).exec
-  return repl
+  const shell = require('repl').repl()
+  const context = createContext(api, name, script)
+  shell.onCommand = context.exec
+  return { shell, context }
 }
 
 module.exports = { createShell }

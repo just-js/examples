@@ -16,8 +16,7 @@ function onConnect (sock) {
       }
       just.print(JSON.stringify(block))
       const { bucket, start, size } = block
-      if (!peer.message(index, messages.PUT, size)) return
-      peer.buffer(blockStore.buckets[bucket], size, start)
+      peer.buffer(index, blockStore.buckets[bucket], size, start)
     }
   }
   peer.onBlock = () => {
