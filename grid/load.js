@@ -1,9 +1,9 @@
-const { createPeer } = require('./lib/grid.js')
+const { createPeer, messages } = require('./lib/grid.js')
 const { createClient } = require('./lib/unix.js')
 
 const config = require('grid.config.js')
 
-const max = (config.bucketSize / config.block) * config.bucket
+const max = ((config.bucketSize * 1024 * 1024 * 1024) / config.block) * config.bucket
 
 const random = () => {
   return Math.floor(Math.random() * max)
@@ -14,16 +14,21 @@ function newPeer () {
   const peer = createPeer(sock, config.block).alloc()
   sock.onReadable = () => peer.pull()
   sock.onWritable = () => sock.resume()
-  peer.onHeader = header => {
+  peer.onHeader = () => {
+    const { op, index } = peer.header
     hrecv++
-    const r = peer.send(random())
+    const r = peer.send(random(), messages.GET)
     if (r <= 0) just.error((new just.SystemError('send')).stack)
     hsend++
   }
-  peer.onBlock = () => recv++
+  peer.onBlock = () => {
+    const { index, size } = peer.header
+    recv++
+  }
   sock.connect('grid.sock')
   const r = peer.send(random())
   if (r <= 0) just.error((new just.SystemError('send')).stack)
+  hsend++
 }
 
 let recv = 0

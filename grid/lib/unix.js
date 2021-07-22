@@ -51,6 +51,9 @@ function createServer () {
     socket.write = (buf, bytes, off) => {
       return net.write(socket.fd, buf, bytes, off)
     }
+    socket.isEmpty = () => {
+      return (sys.errno() === net.EAGAIN)
+    }
     server.onConnect(socket)
   }
 

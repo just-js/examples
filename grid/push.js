@@ -17,21 +17,17 @@ function newPeer () {
   peer.onHeader = header => {
     hrecv++
     const index = random()
-    let r = peer.send(index, 2)
-    if (r <= 0) just.error((new just.SystemError('send')).stack)
-    hsend++
-    r = peer.json({ index })
+    const r = peer.json(random(), { index })
     if (r <= 0) just.error((new just.SystemError('json')).stack)
     send++
+    hsend++
   }
   sock.connect('grid.sock')
   const index = random()
-  let r = peer.send(index, 2)
-  if (r <= 0) just.error((new just.SystemError('send')).stack)
-  hsend++
-  r = peer.json({ index })
+  const r = peer.json(index, { index })
   if (r <= 0) just.error((new just.SystemError('json')).stack)
   send++
+  hsend++
 }
 
 let send = 0
