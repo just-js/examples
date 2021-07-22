@@ -1,24 +1,20 @@
 const { vm } = just.library('vm')
 
-const getMethods = (obj) => {
-  const properties = new Set()
-  let currentObj = obj
-  do {
-    Object.getOwnPropertyNames(currentObj).map(item => properties.add(item))
-  } while ((currentObj = Object.getPrototypeOf(currentObj)))
-  return [...properties.keys()].filter(item => typeof obj[item] === 'function')
-}
-
-function createContext (api = {}, scriptName = 'just.js') {
+function createContext (api, globalName, script) {
   const ctx = new ArrayBuffer(0)
-  const just = vm.createContext(ctx)
-  const props = Object.getOwnPropertyNames(just)
+  const globalObject = vm.createContext(ctx, globalName)
+  const props = Object.getOwnPropertyNames(globalObject)
   for (const prop of props) {
-    if (prop !== 'version') delete just[prop]
+    if (prop !== 'version') delete globalObject[prop]
   }
-  Object.assign(just, api)
-  just.getMethods = getMethods
-  return { exec: src => vm.compileAndRunInContext(ctx, src, scriptName) }
+  Object.assign(globalObject, api)
+  return { exec: src => vm.compileAndRunInContext(ctx, src, script) }
 }
 
-module.exports = { createContext }
+function createShell (api = {}, name = 'just', script = 'just.js') {
+  const repl = require('repl').repl()
+  repl.onCommand = createContext(api, name, script).exec
+  return repl
+}
+
+module.exports = { createShell }

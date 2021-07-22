@@ -75,20 +75,6 @@ class BlockStore {
     return this
   }
 
-/*
-  set (i) {
-    return this.bitmap.set(i)
-  }
-
-  clear (i) {
-    return this.bitmap.unset(i)
-  }
-
-  exists (i) {
-    return this.bitmap.test(i)
-  }
-*/
-
   put (i, buf, off, len) {
     const block = this.lookup(i)
     const { bucket, start, index } = block
