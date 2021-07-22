@@ -11,7 +11,7 @@ const constants = {
     ACK: 3,
     NACK: 4
   },
-  headerSize: 8
+  headerSize: 16
 }
 
 const { headerSize, messages, version } = constants
@@ -54,7 +54,7 @@ class BlockStore {
   constructor (config) {
     this.config = config
     this.block = { index: 0, bucket: 0, slot: 0, start: 0, end: 0, size: 0 }
-    this.sizes = new Uint16Array(0)
+    this.sizes = new Uint32Array(0)
   }
 
   alloc (size) {
@@ -71,7 +71,7 @@ class BlockStore {
     this.totalSize = this.bucketSize * bucket
     this.start = this.buckets.map(b => b.getAddress())
     this.bitmap = new Bitmap(this.totalSlots)
-    this.sizes = new Uint16Array(this.totalSlots)
+    this.sizes = new Uint32Array(this.totalSlots)
     return this
   }
 
@@ -128,6 +128,9 @@ class Peer {
     this.hbuf = null
     this.hdv = null
     this.dv = null
+    const self = this
+    sock.onReadable = () => self.pull()
+    sock.onWritable = () => sock.resume()
   }
 
   alloc () {
@@ -146,8 +149,8 @@ class Peer {
     const { hdv } = this
     hdv.setUint8(0, version)
     hdv.setUint8(1, op & 0xf)
-    hdv.setUint16(2, size)
-    hdv.setUint32(4, index)
+    hdv.setUint32(2, size)
+    hdv.setUint32(6, index)
     return headerSize
   }
 
@@ -155,8 +158,8 @@ class Peer {
     const { dv, start } = this
     const version = dv.getUint8(start)
     const op = dv.getUint8(start + 1) & 0xf
-    const size = dv.getUint16(start + 2)
-    const index = dv.getUint32(start + 4)
+    const size = dv.getUint32(start + 2)
+    const index = dv.getUint32(start + 6)
     return { version, op, index, size }
   }
 

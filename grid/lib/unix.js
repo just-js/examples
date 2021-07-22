@@ -49,7 +49,9 @@ function createServer () {
       return net.read(socket.fd, buf, off, bytes)
     }
     socket.write = (buf, bytes, off) => {
-      return net.write(socket.fd, buf, bytes, off)
+      const r = net.write(socket.fd, buf, bytes, off)
+      just.print(`write ${r}`)
+      return r
     }
     socket.isEmpty = () => {
       return (sys.errno() === net.EAGAIN)
@@ -124,7 +126,9 @@ function createClient () {
     return (sys.errno() === net.EAGAIN)
   }
   socket.write = (buf, bytes, off) => {
-    return net.write(socket.fd, buf, bytes, off)
+    const r = net.write(socket.fd, buf, bytes, off)
+    just.print(`write ${r}`)
+    return r
   }
   socket.close = () => closeSocket()
 
