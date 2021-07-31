@@ -6,7 +6,7 @@ const BUFSIZE = 65536
 const buf = new ArrayBuffer(BUFSIZE)
 let size = 0
 let n = 0
-while ((n = read(STDIN_FILENO, buf))) size += n
+while ((n = read(STDIN_FILENO, buf, 0, BUFSIZE))) size += n
 if (n < 0) {
   error(`read: ${strerror(errno())} (${errno()})`)
   exit(1)
