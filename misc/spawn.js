@@ -1,7 +1,8 @@
+const { thread } = just.library('thread')
 const { readFile } = require('fs')
-just.thread = just.library('thread', 'thread.so').thread
 
-const main = just.builtin('just.js').readString()
+const main = just.builtin('just.js')
+
 const cores = [2, 3, 4, 5]
 let current = 0
 just.print(just.sys.pid())
@@ -9,13 +10,13 @@ just.print(just.sys.pid())
 function spawn (source) {
   const shared = new SharedArrayBuffer(4)
   const u32 = new Uint32Array(shared)
-  const tid = just.thread.spawn(source, main, just.args.slice(1), shared)
-  just.thread.setAffinity(tid, cores[current++])
-  const core = just.thread.getAffinity(tid)
+  const tid = thread.spawn(source, main, just.args.slice(1), shared)
+  thread.setAffinity(tid, cores[current++])
+  const core = thread.getAffinity(tid)
   if (current === cores.length) current = 0
-  const thread = { tid, u32, core, shared }
-  threads.push(thread)
-  return thread
+  const t = { tid, u32, core, shared }
+  threads.push(t)
+  return t
 }
 
 let last = 0

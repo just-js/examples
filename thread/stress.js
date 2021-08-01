@@ -1,4 +1,4 @@
-just.thread = just.library('thread', 'thread.so').thread
+just.thread = just.library('thread').thread
 
 function spawn (fn, cpu, onComplete) {
   let source = fn.toString()

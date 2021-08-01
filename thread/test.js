@@ -56,7 +56,7 @@ const timer = just.setInterval(() => {
   if (r === 0n) {
     // thread is complete
     just.print(status)
-    just.print(`thread complete ${status[1]}`)
+    just.print(`thread complete ${status[0]}`)
     just.clearInterval(timer)
   }
 }, 1000)

@@ -1,4 +1,4 @@
-just.thread = just.library('thread', 'thread.so').thread
+just.thread = just.library('thread').thread
 
 function threadOne () {
   just.setInterval(() => {
