@@ -34,7 +34,7 @@ function threadMain () {
       if (message === 'quit') break
       just.print(`thread recv: ${message}`)
     }
-    sys.usleep(1000)
+    sys.usleep(1000000)
   }
 }
 
@@ -43,10 +43,9 @@ const shared = new SharedArrayBuffer(4)
 const u32 = new Uint32Array(shared)
 const buf = new ArrayBuffer(128)
 const tid = thread.spawn(getSource(threadMain), getSource(main), [], shared, ipc[1])
-let iter = 0
 const timer = just.setInterval(() => {
   const counter = Atomics.load(u32, 0)
-  if (iter++ === 5) {
+  if (counter === 20) {
     send(ipc[0], buf, buf.writeString('quit'))
   } else {
     send(ipc[0], buf, buf.writeString(`counter ${counter} rss ${just.memoryUsage().rss}`))
