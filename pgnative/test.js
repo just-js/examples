@@ -1,4 +1,4 @@
-const postgres = require('../../libs/pg/pg.js')
+const postgres = require('@pg')
 const { connect } = postgres
 const { BinaryInt, VarChar, fieldTypes } = postgres.constants
 const { INT4OID, VARCHAROID } = fieldTypes
