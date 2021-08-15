@@ -4,9 +4,9 @@ const { signal } = just.library('signal')
 
 const { net, SystemError } = just
 const { SOCK_RAW, AF_PACKET, PF_PACKET, ETH_P_ALL } = net
-const { dump, toMAC, htons16, tcpDump } = binary
+const { toMAC, htons16 } = binary
 const { Parser, protocols } = packet
-const { reset, sigaction, SIGINT, SIGTERM } = signal
+const { sigaction, SIGINT } = signal
 
 const clients = {}
 
@@ -14,18 +14,18 @@ function onPacket (packet, u8) {
   const { offset, bytes, frame, header } = packet
   if (frame && frame.protocol === 'IPv4' && header && header.protocol === protocols.TCP) {
     if (packet.message && (packet.message.source === port || packet.message.dest === port)) {
-      if (packet.message.source !== port && !clients[packet.message.source]) {
-        clients[packet.message.source] = { in: [], out: [] }
-      }
       const payload = u8.slice(offset, bytes)
       if (packet.message.source !== port) {
+        if (!clients[packet.message.source]) {
+          clients[packet.message.source] = { in: [], out: [] }
+        }
         clients[packet.message.source].out.push({ packet, payload })
       } else {
+        if (!clients[packet.message.dest]) {
+          clients[packet.message.dest] = { in: [], out: [] }
+        }
         clients[packet.message.dest].in.push({ packet, payload })
       }
-      just.print(tcpDump(packet))
-      if (bytes > offset) just.print(dump(payload), false)
-      just.print('')
     }
   }
 }
@@ -60,7 +60,7 @@ function main (iff = 'lo') {
   net.close(fd)
 }
 
-sigaction(SIGINT, signum => {
+sigaction(SIGINT, () => {
   require('fs').writeFile('dump.json', ArrayBuffer.fromString(JSON.stringify(clients)))
 })
 
