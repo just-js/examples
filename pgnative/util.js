@@ -30,6 +30,16 @@ function replacer (k, v) {
     if (!v) {
       if (typeof v !== 'boolean' && typeof v !== 'number') return '<empty>'
     }
+    if (v.constructor && v.constructor.name === 'Error') {
+      return { message: v.message, stack: v.stack }
+    }
+    if (v.constructor && v.constructor.name === 'PGError') {
+      const e = {}
+      Object.assign(e, v)
+      e.message = v.message
+      e.stack = v.stack
+      return e
+    }
     if (v.constructor && v.constructor.name === 'ArrayBuffer') {
       return 'ArrayBuffer ' + v.byteLength
     }
