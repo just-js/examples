@@ -1,7 +1,7 @@
 const postgres = require('@pg')
 const { connect } = postgres
-const { BinaryInt, VarChar, fieldTypes } = postgres.constants
-const { INT4OID, VARCHAROID } = fieldTypes
+const { BinaryInt, VarChar } = postgres.constants
+const { stringify } = require('util.js')
 
 async function main () {
   const db = {
@@ -15,17 +15,15 @@ async function main () {
     name: 's2',
     sql: 'select * from Fortune',
     fields: [
-      { format: BinaryInt, name: 'id', oid: INT4OID },
-      { format: VarChar, name: 'message', oid: VARCHAROID, htmlEscape: true }
+      { format: BinaryInt, name: 'id' },
+      { format: VarChar, name: 'message', htmlEscape: true }
     ]
   }
   const pool = await connect(db, 1)
   const sock = pool[0]
-  const query = await sock.create(fortunes, 10)
-
-  const result = await query.run()
-
-  just.print(require('util.js').stringify(result))
+  const query = await sock.compile(fortunes, 10)
+  const result = await query.runSingle()
+  just.print(stringify(result))
   sock.close()
 }
 
