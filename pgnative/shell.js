@@ -20,11 +20,13 @@ async function main () {
       cache[name] = query
     }
     const { compiled } = query
+    const { parser } = sock
     const rows = await compiled.runSingle()
     const { fields, portal } = compiled.query
-    const { status, state } = sock.parser
-    const count = state.rows
-    return { rows, fields, portal, count, status: String.fromCharCode(status) }
+    const count = parser.state.rows
+    const status = parser.readStatus()
+    const state = String.fromCharCode(parser.status)
+    return { rows, fields, portal, sql: compiled.query.sql, count, state, status }
   }
   const cache = {}
   const url = just.env().TFDB || 'postgres://localhost/'
@@ -37,8 +39,8 @@ async function main () {
       return
     }
     try {
-      const { rows, count, status } = await execute(sql)
-      just.print(`${count} rows, status ${status}`)
+      const { rows, count, state, status } = await execute(sql)
+      just.print(`${count} ${state} ${status}`)
       just.print(stringify(rows))
     } catch (err) {
       just.print(stringify(err))

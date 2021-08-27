@@ -12,9 +12,10 @@ async function main () {
     const { compiled } = query
     const rows = await compiled.runSingle()
     const { fields, portal } = compiled.query
-    const { status, state } = sock.parser
-    const count = state.rows
-    return { rows, fields, portal, sql: compiled.query.sql, count, status: String.fromCharCode(status) }
+    const count = sock.parser.state.rows
+    const status = sock.parser.readStatus()
+    const state = String.fromCharCode(sock.parser.status)
+    return { rows, fields, portal, sql: compiled.query.sql, count, state, status }
   }
 
   const db = {
@@ -45,7 +46,7 @@ async function main () {
     just.print(`connected to ${db.database}`)
     sock.onNotice = notice => just.print(stringify(notice))
 
-    const ddl = just.fs.readFile('script.sql')
+    const ddl = just.fs.readFile(`${dbName}.sql`)
     const statements = ddl.split(/;\s/).map(sql => sql.trim()).filter(v => v)
     for (const sql of statements) {
       just.print(`executing ${sql}`)
